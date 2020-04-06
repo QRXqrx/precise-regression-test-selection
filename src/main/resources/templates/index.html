@@ -1,0 +1,41 @@
+<!DOCTYPE html >
+<html lang="zh_CN" xmlns="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>精准测试系统</title>
+</head>
+<body>
+<div id="div-center" align="center">
+
+<h1>精准测试系统</h1>
+
+    <table width="1000px" cellspacing="0">
+    <tr>
+        <th>项目名</th>
+        <th>当前版本</th>
+        <th>上一个版本</th>
+        <th></th>
+    </tr>
+    <tr align="center">
+        <td>项目名示例</td>
+        <td>2.0.0</td>
+        <td>1.0.0</td>
+        <td><button id="projectName">查看静态分析结果</button></td>
+    </tr>
+</table>
+
+<button id="upload_btn">上传新项目</button>
+</div>
+</body>
+
+
+<script type="text/javascript">
+    window.onload = function() {
+        document.getElementById("upload_btn").onclick = function() {
+            console.log("跳转到上传页面");
+            window.location.href="/upload"
+        }
+    }
+</script>
+
+</html>

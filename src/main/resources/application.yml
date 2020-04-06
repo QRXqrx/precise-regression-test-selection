@@ -1,0 +1,23 @@
+spring:
+  profiles:
+    active: dev
+
+---
+
+spring:
+  profiles: dev
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: qrx19980713
+    url: jdbc:mysql://localhost:3306/prts?serverTimezone=GMT
+
+upload:
+  properties:
+    upload-folder: C:/Users/QRX/IdeaProjects/precise-regression-test-selection/upload-files
+logging:
+  level:
+    edu:
+      pa:
+        web:
+          prts: debug

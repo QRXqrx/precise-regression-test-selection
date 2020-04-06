@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh_CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>上传结果展示</title>
+</head>
+<body>
+
+<div id="center-div" align="center">
+
+<h1>上传结果</h1>
+    <h2 th:text="${message}">上传结果显示</h2>
+
+    <button id="return-to-index-btn">返回主界面</button><button>精准测试分析</button>
+
+</div>
+
+</body>
+
+<script type="text/javascript">
+    window.onload = function() {
+        document.getElementById("return-to-index-btn").onclick = function() {
+            window.location = "/";
+        }
+    }
+</script>
+</html>
