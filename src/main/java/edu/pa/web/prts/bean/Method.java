@@ -9,6 +9,8 @@ import javax.persistence.Id;
 import javax.persistence.Table;
 
 /**
+ * 表示方法信息的java bean实体类
+ *
  * @author QRX
  * @email QRXwzx@outlook.com
  * @date 2020-04-06

@@ -9,7 +9,7 @@ import javax.persistence.Id;
 import javax.persistence.Table;
 
 /**
- * 表示方法间调用关系的java bean
+ * 表示方法间调用关系的java bean实体类
  *
  * @author QRX
  * @email QRXwzx@outlook.com
