@@ -32,8 +32,8 @@ public class Invocation implements Serializable {
     private String callee;
 
     @Id
-    @Column(name = "project_name")
-    private String projectName;
+    @Column(name = "group_id")
+    private String groupID;
 
     @Column(name = "is_deleted")
     private Boolean isDeleted;

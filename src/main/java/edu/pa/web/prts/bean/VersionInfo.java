@@ -41,8 +41,8 @@ public class VersionInfo {
     @Column(name = "root_folder")
     private String rootFolder;
 
-    @Column(name = "project_name")
-    private String projectName;
+    @Column(name = "group_id")
+    private String groupID;
 
 }
 

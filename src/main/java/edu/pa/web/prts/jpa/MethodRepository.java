@@ -15,12 +15,12 @@ import java.util.List;
 
 public interface MethodRepository extends CrudRepository<Method, MethodKey> {
 
-    List<Method> findAllByProjectName(String projectName);
+    List<Method> findAllByGroupID(String groupID);
 
-    List<Method> findAllByProjectNameAndIsChanged(String projectName, Boolean isChanged);
+    List<Method> findAllByGroupIDAndIsChanged(String groupID, Boolean isChanged);
 
-    List<Method> findAllByProjectNameAndIsTest(String projectName, Boolean isTest);
+    List<Method> findAllByGroupIDAndIsTest(String groupID, Boolean isTest);
 
-    List<Method> findAllByProjectNameAndIsTestAndIsChanged(String projectName, Boolean isTest, Boolean isChanged);
+    List<Method> findAllByGroupIDAndIsTestAndIsChanged(String groupID, Boolean isTest, Boolean isChanged);
 
 }

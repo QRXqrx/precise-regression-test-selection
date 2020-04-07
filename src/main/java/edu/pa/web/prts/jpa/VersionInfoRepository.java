@@ -21,7 +21,7 @@ import java.util.List;
 
 public interface VersionInfoRepository extends CrudRepository<VersionInfo, Long> {
 
-    List<VersionInfo> findAllByProjectName(String projectName);
+    List<VersionInfo> findAllByGroupID(String groupID);
 
     VersionInfo findByUploadTime(Long time);
 

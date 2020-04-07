@@ -26,8 +26,8 @@ import java.io.Serializable;
 public class Method implements Serializable {
 
     @Id
-    @Column(name = "project_name")
-    private String projectName;
+    @Column(name = "group_id")
+    private String groupID;
 
     @Id
     @Column(name = "full_name")
@@ -47,5 +47,8 @@ public class Method implements Serializable {
 
     @Column(name = "class_name")
     private String className;
+
+    @Column(name = "is_artifact")
+    private Boolean isArtifact;
 
 }

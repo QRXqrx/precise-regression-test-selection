@@ -24,12 +24,12 @@ public class MethodDAOTest {
 
     @BeforeEach
     void beforeEach(){
-        methodRepository.save(new Method("test1", "package.Class1.method1", false, false, "1.0", "method1", "Class1"));
-        methodRepository.save(new Method("test1", "package.Class1.method2", true, false, "2.0", "method2", "Class1"));
-        methodRepository.save(new Method("test1", "package.Class2.method1", false, true, "2.0", "method1", "Class2"));
-        methodRepository.save(new Method("test2", "package.Class2.method", false, true, "1.0", "method", "Class2"));
-        methodRepository.save(new Method("test2", "package1.Class1.method", false, true, "1.0", "method", "Class1"));
-        methodRepository.save(new Method("test2", "package.Class2.method1", false, true, "1.0", "method1", "Class2"));
+        methodRepository.save(new Method("test1", "package.Class1.method1", false, false, "1.0", "method1", "Class1", false));
+        methodRepository.save(new Method("test1", "package.Class1.method2", true, false, "2.0", "method2", "Class1", false));
+        methodRepository.save(new Method("test1", "package.Class2.method1", false, true, "2.0", "method1", "Class2", false));
+        methodRepository.save(new Method("test2", "package.Class2.method", false, true, "1.0", "method", "Class2", false));
+        methodRepository.save(new Method("test2", "package1.Class1.method", false, true, "1.0", "method", "Class1", false));
+        methodRepository.save(new Method("test2", "package.Class2.method1", false, true, "1.0", "method1", "Class2", false));
     }
 
     @AfterEach
@@ -39,14 +39,14 @@ public class MethodDAOTest {
 
     @Test
     void testFindAllByProjectNameAndIsTest(){
-        List<Method> all = methodRepository.findAllByProjectNameAndIsTest("test2", true);
+        List<Method> all = methodRepository.findAllByGroupIDAndIsTest("test2", true);
         dumpList(all);
         Assert.assertEquals(3, all.size());
     }
 
     @Test
     void testFindAllByProjectName(){
-        List<Method> all = methodRepository.findAllByProjectName("test1");
+        List<Method> all = methodRepository.findAllByGroupID("test1");
         dumpList(all);
         Assert.assertEquals(3, all.size());
     }

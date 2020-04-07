@@ -40,7 +40,7 @@ class InvocationDAOTest {
 
     @Test
     void testFindAllByProjectNameAndIsAdded(){
-        List<Invocation> all = invocationRepository.findAllByProjectNameAndIsAdded("test", true);
+        List<Invocation> all = invocationRepository.findAllByGroupIDAndIsAdded("test", true);
         dumpList(all);
         Assert.assertEquals(1, all.size());
     }
@@ -48,7 +48,7 @@ class InvocationDAOTest {
 
     @Test
     void testFindAllByCallerAndProjectName(){
-        List<Invocation> allCallers = invocationRepository.findAllByCallerAndProjectName("caller1", "test");
+        List<Invocation> allCallers = invocationRepository.findAllByCallerAndGroupID("caller1", "test");
         dumpList(allCallers);
         Assert.assertEquals(3, allCallers.size());
     }

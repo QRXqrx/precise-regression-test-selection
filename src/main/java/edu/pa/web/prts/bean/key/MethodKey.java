@@ -18,7 +18,7 @@ import java.io.Serializable;
 @Data
 public class MethodKey implements Serializable {
 
-    private String projectName;
+    private String groupID;
 
     private String fullName;
 }

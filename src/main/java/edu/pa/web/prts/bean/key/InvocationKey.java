@@ -22,6 +22,6 @@ public class InvocationKey implements Serializable {
 
     private String callee;
 
-    private String projectName;
+    private String groupID;
 
 }
