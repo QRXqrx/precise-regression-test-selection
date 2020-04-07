@@ -3,6 +3,8 @@ package edu.pa.web.prts.bean.key;
 
 import lombok.Data;
 
+import java.io.Serializable;
+
 /**
  * 表示Method类的ID(PK)
  *
@@ -14,7 +16,7 @@ import lombok.Data;
  */
 
 @Data
-public class MethodKey {
+public class MethodKey implements Serializable {
 
     private String projectName;
 

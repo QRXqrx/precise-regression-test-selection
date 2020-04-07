@@ -1,5 +1,6 @@
 package edu.pa.web.prts.bean;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -7,7 +8,7 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import javax.validation.constraints.Size;
+import java.sql.Timestamp;
 import java.util.Date;
 
 /**
@@ -19,14 +20,20 @@ import java.util.Date;
  */
 
 @NoArgsConstructor
+@AllArgsConstructor
 @Data
 @Entity
 @Table(name = "version_info", schema = "prts")
 public class VersionInfo {
 
+//    @Id
+//    @Column(name = "upload_date")
+//    private Timestamp uploadDate;
+////    private Date uploadDate; // 普通的date可以存入数据库，但是不好用，弃用了
     @Id
-    @Column(name = "update_date")
-    private Date updateDate;
+    @Column(name = "upload_time")
+    private Long uploadTime;
+//    private Date uploadDate; // 普通的date可以存入数据库，但是不好用，弃用了
 
     @Column(name = "version")
     private String version;

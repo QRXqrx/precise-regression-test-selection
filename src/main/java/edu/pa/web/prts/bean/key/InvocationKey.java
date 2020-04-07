@@ -3,6 +3,8 @@ package edu.pa.web.prts.bean.key;
 
 import lombok.Data;
 
+import java.io.Serializable;
+
 /**
  * 表示Invocation类的ID(PK)
  *
@@ -14,7 +16,7 @@ import lombok.Data;
  */
 
 @Data
-public class InvocationKey {
+public class InvocationKey implements Serializable {
 
     private String caller;
 

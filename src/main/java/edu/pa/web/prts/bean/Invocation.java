@@ -1,12 +1,12 @@
 package edu.pa.web.prts.bean;
 
+import edu.pa.web.prts.bean.key.InvocationKey;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
+import java.io.Serializable;
 
 /**
  * 表示方法间调用关系的java bean实体类
@@ -16,10 +16,12 @@ import javax.persistence.Table;
  * @date 2020-04-06
  */
 @NoArgsConstructor
+@AllArgsConstructor
 @Data
 @Entity
+@IdClass(InvocationKey.class)
 @Table(name = "invocation", schema = "prts")
-public class Invocation {
+public class Invocation implements Serializable {
 
     @Id
     @Column(name = "caller")

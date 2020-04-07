@@ -1,12 +1,13 @@
 package edu.pa.web.prts.bean;
 
+import edu.pa.web.prts.bean.key.InvocationKey;
+import edu.pa.web.prts.bean.key.MethodKey;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
+import java.io.Serializable;
 
 /**
  * 表示方法信息的java bean实体类
@@ -17,10 +18,12 @@ import javax.persistence.Table;
  */
 
 @NoArgsConstructor
+@AllArgsConstructor
 @Data
 @Entity
+@IdClass(MethodKey.class)
 @Table(name = "method", schema = "prts")
-public class Method {
+public class Method implements Serializable {
 
     @Id
     @Column(name = "project_name")
