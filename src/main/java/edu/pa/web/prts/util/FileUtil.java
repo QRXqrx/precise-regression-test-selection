@@ -130,7 +130,6 @@ public class FileUtil {
         }
         String content = readAllcontent(file, charset);
         String regex = "\\/\\/[^\\n]*|\\/\\*([^\\*^\\/]*|[\\*^\\/*]*|[^\\**\\/]*)*\\*+\\/";
-//        String regex = "\\/\\/[^\\n]*|\\/\\*([^\\*^\\/]*|[\\*^\\/*]*|[^\\**\\/]*)*\\*\\/";
         String newContent = content.replaceAll(regex, "");
         String outputPath = writeContentIntoFile(file, newContent);
         System.out.println("Clear comments for [" + outputPath + "] done.");
@@ -468,39 +467,4 @@ public class FileUtil {
     }
 
 
-    @Deprecated
-    public static String compileJavaFile(String outputDir, String ... javaPaths) {
-        File outputDirectory = new File(outputDir);
-
-        if(!outputDirectory.exists()) {
-            System.err.println("Warning: \'" + outputDir + "\' does not exists!");
-            boolean mkdirSuccess = outputDirectory.mkdir();
-            if(mkdirSuccess) {
-                System.err.println("Create output directory " + outputDirectory.getAbsolutePath() + "successfully!" );
-            } else {
-                System.err.println("Create output directory " + outputDirectory.getAbsolutePath() + "failed!");
-            }
-
-        /*  TODO: Different OS may have different cmd operations.
-            else {
-                throw new IOException("Create output directory failed!");
-            }
-        */
-        }
-
-        String outputPath = outputDirectory.getAbsolutePath();
-        // TODO: Different OS may have different cmd operations.
-        String CMD = "cmd.exe /c ";
-        for (String javaPath : javaPaths) {
-            String cmd = CMD + javaPath + " -d" + outputPath;
-            System.out.println("cmd: " + cmd);
-            try {
-                Runtime.getRuntime().exec(cmd);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return outputPath;
-    }
 }
