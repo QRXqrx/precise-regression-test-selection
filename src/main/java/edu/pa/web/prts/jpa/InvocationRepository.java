@@ -19,19 +19,19 @@ public interface InvocationRepository extends CrudRepository<Invocation, Invocat
 
     List<Invocation> findAllByCaller(String caller);
 
-    List<Invocation> findAllByCallerAndGroupID(String caller, String projectName);
+    List<Invocation> findAllByCallerAndGroupID(String caller, String groupID);
 
-    List<Invocation> findAllByCallerAndGroupIDAndIsAdded(String caller, String projectName, Boolean isAdded);
+    List<Invocation> findAllByCallerAndGroupIDAndIsAdded(String caller, String groupID, Boolean isAdded);
 
-    List<Invocation> findAllByCallerAndGroupIDAndIsDeleted(String caller, String projectName, Boolean isDeleted);
+    List<Invocation> findAllByCallerAndGroupIDAndIsDeleted(String caller, String groupID, Boolean isDeleted);
 
-    List<Invocation> findAllByGroupIDAndIsAdded(String projectName, Boolean isAdded);
+    List<Invocation> findAllByGroupIDAndIsAdded(String groupID, Boolean isAdded);
 
-    List<Invocation> findAllByGroupIDAndIsDeleted(String projectName, Boolean isDeleted);
+    List<Invocation> findAllByGroupIDAndIsDeleted(String groupID, Boolean isDeleted);
 
-    List<Invocation> findAllByGroupID(String projectName);
+    List<Invocation> findAllByGroupID(String groupID);
 
-    List<Invocation> findAllByGroupIDAndVersion(String projectName, String version);
+    List<Invocation> findAllByGroupIDAndVersion(String groupID, String version);
 
 
 }

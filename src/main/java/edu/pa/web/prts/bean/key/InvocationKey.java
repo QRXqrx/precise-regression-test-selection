@@ -1,6 +1,7 @@
 package edu.pa.web.prts.bean.key;
 
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -15,6 +16,7 @@ import java.io.Serializable;
  * @date 2020-04-06
  */
 
+@AllArgsConstructor
 @Data
 public class InvocationKey implements Serializable {
 
