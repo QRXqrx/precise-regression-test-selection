@@ -130,16 +130,16 @@ class FunctionTest1 {
         smallCHAcg.forEach((node) -> {
             IMethod caller = node.getMethod();
             String callerName = caller.getSignature();
-            if(callerName.length() > 250) {
-                callerName = callerName.substring(0, 250);
+            if(callerName.length() > 300) {
+                callerName = callerName.substring(0, 300);
             }
             if(caller.getSignature().contains(groupID)) { // 排除掉项目无关的
                 Iterator<CGNode> iter = fullCHAcg.getSuccNodes(node);
                 while(iter.hasNext()) {
                     IMethod callee = iter.next().getMethod();
                     String calleeName = callee.getSignature();
-                    if(calleeName.length() > 250) {
-                        calleeName = calleeName.substring(0, 250);
+                    if(calleeName.length() > 300) {
+                        calleeName = calleeName.substring(0, 300);
                     }
                     Invocation invocation = new Invocation(
                             callerName, // 用方法签名来表示方法全名
@@ -156,6 +156,7 @@ class FunctionTest1 {
             }
         });
     }
+
 
     @Test
     void  resetInvocationRepo() {

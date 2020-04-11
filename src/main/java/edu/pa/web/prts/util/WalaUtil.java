@@ -23,6 +23,10 @@ public class WalaUtil {
 
     private WalaUtil(){}
 
+    public static boolean isArtifact(IMethod method, String groupID) {
+        return method.getSignature().contains(groupID);
+    }
+
 
     public static boolean isTestMethodNode(CGNode node) {
         IMethod method = node.getMethod();

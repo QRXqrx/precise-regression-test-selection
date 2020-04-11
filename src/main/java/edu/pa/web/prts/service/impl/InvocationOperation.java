@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 /**
  * Invocation相关的数据库复杂操作的实现类
  *
+ * @see Invocation
  * @author QRX
  * @email QRXwzx@outlook.com
  * @date 2020-04-11
@@ -24,8 +25,14 @@ import java.util.stream.Collectors;
 @Service
 public class InvocationOperation implements DBOperationService<Invocation> {
 
-    InvocationRepository invocationRepository;
-    VersionInfoOperation versionInfoOperation;
+    private InvocationRepository invocationRepository;
+    private VersionInfoOperation versionInfoOperation;
+
+    @Autowired
+    public InvocationOperation(InvocationRepository invocationRepository, VersionInfoOperation versionInfoOperation) {
+        this.invocationRepository = invocationRepository;
+        this.versionInfoOperation = versionInfoOperation;
+    }
 
     /**
      * 获取组别号对应的所有最新版本调用关系。而且这些调用关系是用户关心的组件信息(is_artifact=true)
@@ -45,12 +52,6 @@ public class InvocationOperation implements DBOperationService<Invocation> {
         List<Invocation> latestInvocations = findLatestInvocations(groupID);
         log.debug("展示" + groupID + "对应的全部最新Artifact调用关系");
         latestInvocations.forEach((invocation) -> log.debug(invocation.toString()));
-    }
-
-    @Autowired
-    public InvocationOperation(InvocationRepository invocationRepository, VersionInfoOperation versionInfoOperation) {
-        this.invocationRepository = invocationRepository;
-        this.versionInfoOperation = versionInfoOperation;
     }
 
     @Override
@@ -99,21 +100,23 @@ public class InvocationOperation implements DBOperationService<Invocation> {
             if(versionInfoOperation.onlyOneVersion(groupID)) {
                 continue;
             }
-            // 获取到旧版本
-            String oldestVersionID = versionInfoOperation.findOldestVersionID(groupID);
-            // 获取到所有当前版本还位旧版本的Invocation记录。这些记录在本次显示中不会被选中，并且会在第三个版本进入后被删除
-            List<Invocation> allInvocationsWithOldVersion =
-                    invocationRepository.findAllByGroupIDAndVersion(groupID, oldestVersionID);
-            for (Invocation oldInvocation : allInvocationsWithOldVersion) {
-                Invocation newInvocation = new Invocation(
-                        oldInvocation.getCaller(),
-                        oldInvocation.getCallee(),
-                        oldInvocation.getGroupID(),
-                        true, // 这条记录已经被抛弃了
-                        false,
-                        oldInvocation.getVersion() // 暂定是保留老版本
-                );
-                update(oldInvocation, newInvocation); // 更新为船新版本
+            if(!versionInfoOperation.onlyOneVersion(groupID)) { // 该groupID对应的项目已经存在多个版本
+                // 获取到旧版本
+                String oldestVersionID = versionInfoOperation.findOldestVersionID(groupID);
+                // 获取到所有当前版本还位旧版本的Invocation记录。这些记录在本次显示中不会被选中，并且会在第三个版本进入后被删除
+                List<Invocation> allInvocationsWithOldVersion =
+                        invocationRepository.findAllByGroupIDAndVersion(groupID, oldestVersionID);
+                for (Invocation oldInvocation : allInvocationsWithOldVersion) {
+                    Invocation newInvocation = new Invocation(
+                            oldInvocation.getCaller(),
+                            oldInvocation.getCallee(),
+                            oldInvocation.getGroupID(),
+                            true, // 这条记录已经被抛弃了
+                            false,
+                            oldInvocation.getVersion() // 暂定是保留老版本
+                    );
+                    update(oldInvocation, newInvocation); // 更新为船新版本
+                }
             }
         }
 
@@ -135,7 +138,7 @@ public class InvocationOperation implements DBOperationService<Invocation> {
         Map<String, Integer> updateResult = updateTable(records);
         log.debug("将" + records + "存入数据库...");
         updateResult.forEach((k, v) -> log.debug(k + ": " + v));
-        return updateResult.get("添加的VersionInfo总数");
+        return updateResult.get("添加的Invocation总数");
     }
 
     @Override

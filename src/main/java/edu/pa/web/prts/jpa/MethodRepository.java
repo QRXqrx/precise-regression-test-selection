@@ -15,6 +15,8 @@ import java.util.List;
 
 public interface MethodRepository extends CrudRepository<Method, MethodKey> {
 
+    List<Method> findAllByGroupIDAndIsArtifact(String groupID, Boolean isArtifact);
+
     List<Method> findAllByGroupID(String groupID);
 
     List<Method> findAllByGroupIDAndIsChanged(String groupID, Boolean isChanged);

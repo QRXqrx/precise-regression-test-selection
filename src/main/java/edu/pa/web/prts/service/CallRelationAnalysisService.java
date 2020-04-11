@@ -21,16 +21,6 @@ public interface CallRelationAnalysisService {
     CHACallGraph buildCHACG(boolean appOnly);
 
     /**
-     * 将分析得到的Invocation信息存入数据库
-     */
-    void saveInvocations();
-
-    /**
-     * 将分析得到的Method信息存入数据库
-     */
-    void saveMethods();
-
-    /**
      * 执行静态分析，会调用上述的方法。
      */
     void analysis();

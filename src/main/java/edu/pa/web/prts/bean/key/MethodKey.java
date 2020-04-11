@@ -1,7 +1,9 @@
 package edu.pa.web.prts.bean.key;
 
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
@@ -15,6 +17,8 @@ import java.io.Serializable;
  * @date 2020-04-06
  */
 
+@NoArgsConstructor
+@AllArgsConstructor
 @Data
 public class MethodKey implements Serializable {
 

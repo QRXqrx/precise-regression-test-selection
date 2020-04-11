@@ -14,6 +14,7 @@ import java.util.*;
 /**
  * VersionInfo相关的数据库复杂操作的实现类
  *
+ * @see VersionInfo
  * @author QRX
  * @email QRXwzx@outlook.com
  * @date 2020-04-11
@@ -41,15 +42,15 @@ public class VersionInfoOperation implements DBOperationService<VersionInfo> {
 
     /**
      * @param groupID 目标组号
-     * @return 组号对应项目的最新版本号
+     * @return 组号对应项目的最新版本信息
      */
-    public String findLatestVersionID(String groupID) {
+    public VersionInfo findLatestVersionInfo(String groupID) {
         List<VersionInfo> versionInfos = versionInfoRepository.findAllByGroupID(groupID);
         Optional<VersionInfo> versionInfoOp = versionInfos.stream()
                 .max(Comparator.comparingLong(VersionInfo::getUploadTime));
 
         if(versionInfoOp.isPresent()) {
-            return versionInfoOp.get().getVersion();
+            return versionInfoOp.get();
         } else {
             throw new NoSuchElementException("关于" + groupID + "的VersionID记录不存在！");
         }
@@ -59,16 +60,33 @@ public class VersionInfoOperation implements DBOperationService<VersionInfo> {
      * @param groupID 目标组号
      * @return 组号对应项目的最新版本号
      */
-    public String findOldestVersionID(String groupID) {
+    public String findLatestVersionID(String groupID) {
+        return findLatestVersionInfo(groupID).getVersion();
+    }
+
+
+    /**
+     * @param groupID 目标组号
+     * @return 组号对应项目的最旧版本信息
+     */
+    public VersionInfo findOldestVersionInfo(String groupID) {
         List<VersionInfo> versionInfos = versionInfoRepository.findAllByGroupID(groupID);
         Optional<VersionInfo> versionInfoOp = versionInfos.stream()
                 .min(Comparator.comparingLong(VersionInfo::getUploadTime));
 
         if(versionInfoOp.isPresent()) {
-            return versionInfoOp.get().getVersion();
+            return versionInfoOp.get();
         } else {
             throw new NoSuchElementException("关于" + groupID + "的VersionID记录不存在！");
         }
+    }
+
+    /**
+     * @param groupID 目标组号
+     * @return 组号对应项目的最旧版本号
+     */
+    public String findOldestVersionID(String groupID) {
+        return findOldestVersionInfo(groupID).getVersion();
     }
 
     @Override
