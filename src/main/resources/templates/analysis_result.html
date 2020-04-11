@@ -1,0 +1,59 @@
+<!DOCTYPE html >
+<html lang="zh_CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>精准测试系统</title>
+    <style>
+        tr {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div id="div-center" align="center">
+
+<h1 th:text="${groupID} + '组件列表'">测试结果展示</h1>
+<table width="1000px" cellspacing="0">
+    <tr>
+        <th>类名</th>
+        <th>方法名</th>
+        <th>测试方法</th>
+        <th>变更相关</th>
+        <th>当前版本</th>
+        <th></th>
+    </tr>
+    <tr>
+        <td>类名示例</td>
+        <td>方法名示例</td>
+        <td>是</td>
+        <td>是</td>
+        <td>1.0</td>
+        <td><a href="">查看调用图</a></td> <!--或者用超链接-->
+    </tr>
+    <tr th:each="artifact : ${artifactList}">
+        <td th:text="${artifact.getClassName()}"></td>
+        <td th:text="${artifact.getSimpleName()}"></td>
+        <td th:text="${artifact.getIsChanged()==true ? '是' : '否' }"></td>
+        <td th:text="${artifact.getIsTest()==true ? '是' : '否' }"></td>
+        <td th:text="${artifact.getVersion()}"></td>
+        <td><a th:href="'/' + ${artifact.getFullName()}">查看调用图</a></td>
+    </tr>
+
+</table>
+
+    <a href="">查看完整调用图</a>
+    <a href="">查看选中测试</a>
+</div>
+</body>
+
+
+<script type="text/javascript">
+    window.onload = function() {
+        document.getElementById("upload_btn").onclick = function() {
+            console.log("跳转到上传页面");
+            window.location.href="/upload"
+        }
+    }
+</script>
+
+</html>

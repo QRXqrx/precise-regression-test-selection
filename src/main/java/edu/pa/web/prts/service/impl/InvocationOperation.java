@@ -4,7 +4,6 @@ import edu.pa.web.prts.bean.Invocation;
 import edu.pa.web.prts.bean.key.InvocationKey;
 import edu.pa.web.prts.jpa.InvocationRepository;
 import edu.pa.web.prts.service.DBOperationService;
-import edu.pa.web.prts.vo.VO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -153,8 +152,4 @@ public class InvocationOperation implements DBOperationService<Invocation> {
         return cnt;
     }
 
-    @Override
-    public VO generateVO(Object... objs) {
-        return null;
-    }
 }

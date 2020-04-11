@@ -42429,6 +42429,2794 @@ registerProcessor(dataFilter('pie'));
 * specific language governing permissions and limitations
 * under the License.
 */
+
+/**
+ * Link lists and struct (graph or tree)
+ */
+var each$7 = each$1;
+var DATAS = '\0__link_datas';
+var MAIN_DATA = '\0__link_mainData'; // Caution:
+// In most case, either list or its shallow clones (see list.cloneShallow)
+// is active in echarts process. So considering heap memory consumption,
+// we do not clone tree or graph, but share them among list and its shallow clones.
+// But in some rare case, we have to keep old list (like do animation in chart). So
+// please take care that both the old list and the new list share the same tree/graph.
+
+/**
+ * @param {Object} opt
+ * @param {module:echarts/data/List} opt.mainData
+ * @param {Object} [opt.struct] For example, instance of Graph or Tree.
+ * @param {string} [opt.structAttr] designation: list[structAttr] = struct;
+ * @param {Object} [opt.datas] {dataType: data},
+ *                 like: {node: nodeList, edge: edgeList}.
+ *                 Should contain mainData.
+ * @param {Object} [opt.datasAttr] {dataType: attr},
+ *                 designation: struct[datasAttr[dataType]] = list;
+ */
+
+function linkList(opt) {
+  var mainData = opt.mainData;
+  var datas = opt.datas;
+
+  if (!datas) {
+    datas = {
+      main: mainData
+    };
+    opt.datasAttr = {
+      main: 'data'
+    };
+  }
+
+  opt.datas = opt.mainData = null;
+  linkAll(mainData, datas, opt); // Porxy data original methods.
+
+  each$7(datas, function (data) {
+    each$7(mainData.TRANSFERABLE_METHODS, function (methodName) {
+      data.wrapMethod(methodName, curry(transferInjection, opt));
+    });
+  }); // Beyond transfer, additional features should be added to `cloneShallow`.
+
+  mainData.wrapMethod('cloneShallow', curry(cloneShallowInjection, opt)); // Only mainData trigger change, because struct.update may trigger
+  // another changable methods, which may bring about dead lock.
+
+  each$7(mainData.CHANGABLE_METHODS, function (methodName) {
+    mainData.wrapMethod(methodName, curry(changeInjection, opt));
+  }); // Make sure datas contains mainData.
+
+  assert$1(datas[mainData.dataType] === mainData);
+}
+
+function transferInjection(opt, res) {
+  if (isMainData(this)) {
+    // Transfer datas to new main data.
+    var datas = extend({}, this[DATAS]);
+    datas[this.dataType] = res;
+    linkAll(res, datas, opt);
+  } else {
+    // Modify the reference in main data to point newData.
+    linkSingle(res, this.dataType, this[MAIN_DATA], opt);
+  }
+
+  return res;
+}
+
+function changeInjection(opt, res) {
+  opt.struct && opt.struct.update(this);
+  return res;
+}
+
+function cloneShallowInjection(opt, res) {
+  // cloneShallow, which brings about some fragilities, may be inappropriate
+  // to be exposed as an API. So for implementation simplicity we can make
+  // the restriction that cloneShallow of not-mainData should not be invoked
+  // outside, but only be invoked here.
+  each$7(res[DATAS], function (data, dataType) {
+    data !== res && linkSingle(data.cloneShallow(), dataType, res, opt);
+  });
+  return res;
+}
+/**
+ * Supplement method to List.
+ *
+ * @public
+ * @param {string} [dataType] If not specified, return mainData.
+ * @return {module:echarts/data/List}
+ */
+
+
+function getLinkedData(dataType) {
+  var mainData = this[MAIN_DATA];
+  return dataType == null || mainData == null ? mainData : mainData[DATAS][dataType];
+}
+
+function isMainData(data) {
+  return data[MAIN_DATA] === data;
+}
+
+function linkAll(mainData, datas, opt) {
+  mainData[DATAS] = {};
+  each$7(datas, function (data, dataType) {
+    linkSingle(data, dataType, mainData, opt);
+  });
+}
+
+function linkSingle(data, dataType, mainData, opt) {
+  mainData[DATAS][dataType] = data;
+  data[MAIN_DATA] = mainData;
+  data.dataType = dataType;
+
+  if (opt.struct) {
+    data[opt.structAttr] = opt.struct;
+    opt.struct[opt.datasAttr[dataType]] = data;
+  } // Supplement method.
+
+
+  data.getLinkedData = getLinkedData;
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+
+/**
+ * Tree data structure
+ *
+ * @module echarts/data/Tree
+ */
+/**
+ * @constructor module:echarts/data/Tree~TreeNode
+ * @param {string} name
+ * @param {module:echarts/data/Tree} hostTree
+ */
+
+var TreeNode = function (name, hostTree) {
+  /**
+   * @type {string}
+   */
+  this.name = name || '';
+  /**
+   * Depth of node
+   *
+   * @type {number}
+   * @readOnly
+   */
+
+  this.depth = 0;
+  /**
+   * Height of the subtree rooted at this node.
+   * @type {number}
+   * @readOnly
+   */
+
+  this.height = 0;
+  /**
+   * @type {module:echarts/data/Tree~TreeNode}
+   * @readOnly
+   */
+
+  this.parentNode = null;
+  /**
+   * Reference to list item.
+   * Do not persistent dataIndex outside,
+   * besause it may be changed by list.
+   * If dataIndex -1,
+   * this node is logical deleted (filtered) in list.
+   *
+   * @type {Object}
+   * @readOnly
+   */
+
+  this.dataIndex = -1;
+  /**
+   * @type {Array.<module:echarts/data/Tree~TreeNode>}
+   * @readOnly
+   */
+
+  this.children = [];
+  /**
+   * @type {Array.<module:echarts/data/Tree~TreeNode>}
+   * @pubilc
+   */
+
+  this.viewChildren = [];
+  /**
+   * @type {moduel:echarts/data/Tree}
+   * @readOnly
+   */
+
+  this.hostTree = hostTree;
+};
+
+TreeNode.prototype = {
+  constructor: TreeNode,
+
+  /**
+   * The node is removed.
+   * @return {boolean} is removed.
+   */
+  isRemoved: function () {
+    return this.dataIndex < 0;
+  },
+
+  /**
+   * Travel this subtree (include this node).
+   * Usage:
+   *    node.eachNode(function () { ... }); // preorder
+   *    node.eachNode('preorder', function () { ... }); // preorder
+   *    node.eachNode('postorder', function () { ... }); // postorder
+   *    node.eachNode(
+   *        {order: 'postorder', attr: 'viewChildren'},
+   *        function () { ... }
+   *    ); // postorder
+   *
+   * @param {(Object|string)} options If string, means order.
+   * @param {string=} options.order 'preorder' or 'postorder'
+   * @param {string=} options.attr 'children' or 'viewChildren'
+   * @param {Function} cb If in preorder and return false,
+   *                      its subtree will not be visited.
+   * @param {Object} [context]
+   */
+  eachNode: function (options, cb, context) {
+    if (typeof options === 'function') {
+      context = cb;
+      cb = options;
+      options = null;
+    }
+
+    options = options || {};
+
+    if (isString(options)) {
+      options = {
+        order: options
+      };
+    }
+
+    var order = options.order || 'preorder';
+    var children = this[options.attr || 'children'];
+    var suppressVisitSub;
+    order === 'preorder' && (suppressVisitSub = cb.call(context, this));
+
+    for (var i = 0; !suppressVisitSub && i < children.length; i++) {
+      children[i].eachNode(options, cb, context);
+    }
+
+    order === 'postorder' && cb.call(context, this);
+  },
+
+  /**
+   * Update depth and height of this subtree.
+   *
+   * @param  {number} depth
+   */
+  updateDepthAndHeight: function (depth) {
+    var height = 0;
+    this.depth = depth;
+
+    for (var i = 0; i < this.children.length; i++) {
+      var child = this.children[i];
+      child.updateDepthAndHeight(depth + 1);
+
+      if (child.height > height) {
+        height = child.height;
+      }
+    }
+
+    this.height = height + 1;
+  },
+
+  /**
+   * @param  {string} id
+   * @return {module:echarts/data/Tree~TreeNode}
+   */
+  getNodeById: function (id) {
+    if (this.getId() === id) {
+      return this;
+    }
+
+    for (var i = 0, children = this.children, len = children.length; i < len; i++) {
+      var res = children[i].getNodeById(id);
+
+      if (res) {
+        return res;
+      }
+    }
+  },
+
+  /**
+   * @param {module:echarts/data/Tree~TreeNode} node
+   * @return {boolean}
+   */
+  contains: function (node) {
+    if (node === this) {
+      return true;
+    }
+
+    for (var i = 0, children = this.children, len = children.length; i < len; i++) {
+      var res = children[i].contains(node);
+
+      if (res) {
+        return res;
+      }
+    }
+  },
+
+  /**
+   * @param {boolean} includeSelf Default false.
+   * @return {Array.<module:echarts/data/Tree~TreeNode>} order: [root, child, grandchild, ...]
+   */
+  getAncestors: function (includeSelf) {
+    var ancestors = [];
+    var node = includeSelf ? this : this.parentNode;
+
+    while (node) {
+      ancestors.push(node);
+      node = node.parentNode;
+    }
+
+    ancestors.reverse();
+    return ancestors;
+  },
+
+  /**
+   * @param {string|Array=} [dimension='value'] Default 'value'. can be 0, 1, 2, 3
+   * @return {number} Value.
+   */
+  getValue: function (dimension) {
+    var data = this.hostTree.data;
+    return data.get(data.getDimension(dimension || 'value'), this.dataIndex);
+  },
+
+  /**
+   * @param {Object} layout
+   * @param {boolean=} [merge=false]
+   */
+  setLayout: function (layout, merge$$1) {
+    this.dataIndex >= 0 && this.hostTree.data.setItemLayout(this.dataIndex, layout, merge$$1);
+  },
+
+  /**
+   * @return {Object} layout
+   */
+  getLayout: function () {
+    return this.hostTree.data.getItemLayout(this.dataIndex);
+  },
+
+  /**
+   * @param {string} [path]
+   * @return {module:echarts/model/Model}
+   */
+  getModel: function (path) {
+    if (this.dataIndex < 0) {
+      return;
+    }
+
+    var hostTree = this.hostTree;
+    var itemModel = hostTree.data.getItemModel(this.dataIndex);
+    var levelModel = this.getLevelModel();
+    var leavesModel;
+
+    if (!levelModel && (this.children.length === 0 || this.children.length !== 0 && this.isExpand === false)) {
+      leavesModel = this.getLeavesModel();
+    }
+
+    return itemModel.getModel(path, (levelModel || leavesModel || hostTree.hostModel).getModel(path));
+  },
+
+  /**
+   * @return {module:echarts/model/Model}
+   */
+  getLevelModel: function () {
+    return (this.hostTree.levelModels || [])[this.depth];
+  },
+
+  /**
+   * @return {module:echarts/model/Model}
+   */
+  getLeavesModel: function () {
+    return this.hostTree.leavesModel;
+  },
+
+  /**
+   * @example
+   *  setItemVisual('color', color);
+   *  setItemVisual({
+   *      'color': color
+   *  });
+   */
+  setVisual: function (key, value) {
+    this.dataIndex >= 0 && this.hostTree.data.setItemVisual(this.dataIndex, key, value);
+  },
+
+  /**
+   * Get item visual
+   */
+  getVisual: function (key, ignoreParent) {
+    return this.hostTree.data.getItemVisual(this.dataIndex, key, ignoreParent);
+  },
+
+  /**
+   * @public
+   * @return {number}
+   */
+  getRawIndex: function () {
+    return this.hostTree.data.getRawIndex(this.dataIndex);
+  },
+
+  /**
+   * @public
+   * @return {string}
+   */
+  getId: function () {
+    return this.hostTree.data.getId(this.dataIndex);
+  },
+
+  /**
+   * if this is an ancestor of another node
+   *
+   * @public
+   * @param {TreeNode} node another node
+   * @return {boolean} if is ancestor
+   */
+  isAncestorOf: function (node) {
+    var parent = node.parentNode;
+
+    while (parent) {
+      if (parent === this) {
+        return true;
+      }
+
+      parent = parent.parentNode;
+    }
+
+    return false;
+  },
+
+  /**
+   * if this is an descendant of another node
+   *
+   * @public
+   * @param {TreeNode} node another node
+   * @return {boolean} if is descendant
+   */
+  isDescendantOf: function (node) {
+    return node !== this && node.isAncestorOf(this);
+  }
+};
+/**
+ * @constructor
+ * @alias module:echarts/data/Tree
+ * @param {module:echarts/model/Model} hostModel
+ * @param {Array.<Object>} levelOptions
+ * @param {Object} leavesOption
+ */
+
+function Tree(hostModel, levelOptions, leavesOption) {
+  /**
+   * @type {module:echarts/data/Tree~TreeNode}
+   * @readOnly
+   */
+  this.root;
+  /**
+   * @type {module:echarts/data/List}
+   * @readOnly
+   */
+
+  this.data;
+  /**
+   * Index of each item is the same as the raw index of coresponding list item.
+   * @private
+   * @type {Array.<module:echarts/data/Tree~TreeNode}
+   */
+
+  this._nodes = [];
+  /**
+   * @private
+   * @readOnly
+   * @type {module:echarts/model/Model}
+   */
+
+  this.hostModel = hostModel;
+  /**
+   * @private
+   * @readOnly
+   * @type {Array.<module:echarts/model/Model}
+   */
+
+  this.levelModels = map(levelOptions || [], function (levelDefine) {
+    return new Model(levelDefine, hostModel, hostModel.ecModel);
+  });
+  this.leavesModel = new Model(leavesOption || {}, hostModel, hostModel.ecModel);
+}
+
+Tree.prototype = {
+  constructor: Tree,
+  type: 'tree',
+
+  /**
+   * Travel this subtree (include this node).
+   * Usage:
+   *    node.eachNode(function () { ... }); // preorder
+   *    node.eachNode('preorder', function () { ... }); // preorder
+   *    node.eachNode('postorder', function () { ... }); // postorder
+   *    node.eachNode(
+   *        {order: 'postorder', attr: 'viewChildren'},
+   *        function () { ... }
+   *    ); // postorder
+   *
+   * @param {(Object|string)} options If string, means order.
+   * @param {string=} options.order 'preorder' or 'postorder'
+   * @param {string=} options.attr 'children' or 'viewChildren'
+   * @param {Function} cb
+   * @param {Object}   [context]
+   */
+  eachNode: function (options, cb, context) {
+    this.root.eachNode(options, cb, context);
+  },
+
+  /**
+   * @param {number} dataIndex
+   * @return {module:echarts/data/Tree~TreeNode}
+   */
+  getNodeByDataIndex: function (dataIndex) {
+    var rawIndex = this.data.getRawIndex(dataIndex);
+    return this._nodes[rawIndex];
+  },
+
+  /**
+   * @param {string} name
+   * @return {module:echarts/data/Tree~TreeNode}
+   */
+  getNodeByName: function (name) {
+    return this.root.getNodeByName(name);
+  },
+
+  /**
+   * Update item available by list,
+   * when list has been performed options like 'filterSelf' or 'map'.
+   */
+  update: function () {
+    var data = this.data;
+    var nodes = this._nodes;
+
+    for (var i = 0, len = nodes.length; i < len; i++) {
+      nodes[i].dataIndex = -1;
+    }
+
+    for (var i = 0, len = data.count(); i < len; i++) {
+      nodes[data.getRawIndex(i)].dataIndex = i;
+    }
+  },
+
+  /**
+   * Clear all layouts
+   */
+  clearLayouts: function () {
+    this.data.clearItemLayouts();
+  }
+};
+/**
+ * data node format:
+ * {
+ *     name: ...
+ *     value: ...
+ *     children: [
+ *         {
+ *             name: ...
+ *             value: ...
+ *             children: ...
+ *         },
+ *         ...
+ *     ]
+ * }
+ *
+ * @static
+ * @param {Object} dataRoot Root node.
+ * @param {module:echarts/model/Model} hostModel
+ * @param {Object} treeOptions
+ * @param {Array.<Object>} treeOptions.levels
+ * @param {Array.<Object>} treeOptions.leaves
+ * @return module:echarts/data/Tree
+ */
+
+Tree.createTree = function (dataRoot, hostModel, treeOptions, beforeLink) {
+  var tree = new Tree(hostModel, treeOptions.levels, treeOptions.leaves);
+  var listData = [];
+  var dimMax = 1;
+  buildHierarchy(dataRoot);
+
+  function buildHierarchy(dataNode, parentNode) {
+    var value = dataNode.value;
+    dimMax = Math.max(dimMax, isArray(value) ? value.length : 1);
+    listData.push(dataNode);
+    var node = new TreeNode(dataNode.name, tree);
+    parentNode ? addChild(node, parentNode) : tree.root = node;
+
+    tree._nodes.push(node);
+
+    var children = dataNode.children;
+
+    if (children) {
+      for (var i = 0; i < children.length; i++) {
+        buildHierarchy(children[i], node);
+      }
+    }
+  }
+
+  tree.root.updateDepthAndHeight(0);
+  var dimensionsInfo = createDimensions(listData, {
+    coordDimensions: ['value'],
+    dimensionsCount: dimMax
+  });
+  var list = new List(dimensionsInfo, hostModel);
+  list.initData(listData);
+  linkList({
+    mainData: list,
+    struct: tree,
+    structAttr: 'tree'
+  });
+  tree.update();
+  beforeLink && beforeLink(list);
+  return tree;
+};
+/**
+ * It is needed to consider the mess of 'list', 'hostModel' when creating a TreeNote,
+ * so this function is not ready and not necessary to be public.
+ *
+ * @param {(module:echarts/data/Tree~TreeNode|Object)} child
+ */
+
+
+function addChild(child, node) {
+  var children = node.children;
+
+  if (child.parentNode === node) {
+    return;
+  }
+
+  children.push(child);
+  child.parentNode = node;
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+SeriesModel.extend({
+  type: 'series.tree',
+  layoutInfo: null,
+  // can support the position parameters 'left', 'top','right','bottom', 'width',
+  // 'height' in the setOption() with 'merge' mode normal.
+  layoutMode: 'box',
+
+  /**
+   * Init a tree data structure from data in option series
+   * @param  {Object} option  the object used to config echarts view
+   * @return {module:echarts/data/List} storage initial data
+   */
+  getInitialData: function (option) {
+    //create an virtual root
+    var root = {
+      name: option.name,
+      children: option.data
+    };
+    var leaves = option.leaves || {};
+    var treeOption = {};
+    treeOption.leaves = leaves;
+    var tree = Tree.createTree(root, this, treeOption, beforeLink);
+
+    function beforeLink(nodeData) {
+      nodeData.wrapMethod('getItemModel', function (model, idx) {
+        var node = tree.getNodeByDataIndex(idx);
+        var leavesModel = node.getLeavesModel();
+
+        if (!node.children.length || !node.isExpand) {
+          model.parentModel = leavesModel;
+        }
+
+        return model;
+      });
+    }
+
+    var treeDepth = 0;
+    tree.eachNode('preorder', function (node) {
+      if (node.depth > treeDepth) {
+        treeDepth = node.depth;
+      }
+    });
+    var expandAndCollapse = option.expandAndCollapse;
+    var expandTreeDepth = expandAndCollapse && option.initialTreeDepth >= 0 ? option.initialTreeDepth : treeDepth;
+    tree.root.eachNode('preorder', function (node) {
+      var item = node.hostTree.data.getRawDataItem(node.dataIndex); // Add item.collapsed != null, because users can collapse node original in the series.data.
+
+      node.isExpand = item && item.collapsed != null ? !item.collapsed : node.depth <= expandTreeDepth;
+    });
+    return tree.data;
+  },
+
+  /**
+   * Make the configuration 'orient' backward compatibly, with 'horizontal = LR', 'vertical = TB'.
+   * @returns {string} orient
+   */
+  getOrient: function () {
+    var orient = this.get('orient');
+
+    if (orient === 'horizontal') {
+      orient = 'LR';
+    } else if (orient === 'vertical') {
+      orient = 'TB';
+    }
+
+    return orient;
+  },
+  setZoom: function (zoom) {
+    this.option.zoom = zoom;
+  },
+  setCenter: function (center) {
+    this.option.center = center;
+  },
+
+  /**
+   * @override
+   * @param {number} dataIndex
+   */
+  formatTooltip: function (dataIndex) {
+    var tree = this.getData().tree;
+    var realRoot = tree.root.children[0];
+    var node = tree.getNodeByDataIndex(dataIndex);
+    var value = node.getValue();
+    var name = node.name;
+
+    while (node && node !== realRoot) {
+      name = node.parentNode.name + '.' + name;
+      node = node.parentNode;
+    }
+
+    return encodeHTML(name + (isNaN(value) || value == null ? '' : ' : ' + value));
+  },
+  defaultOption: {
+    zlevel: 0,
+    z: 2,
+    coordinateSystem: 'view',
+    // the position of the whole view
+    left: '12%',
+    top: '12%',
+    right: '12%',
+    bottom: '12%',
+    // the layout of the tree, two value can be selected, 'orthogonal' or 'radial'
+    layout: 'orthogonal',
+    // value can be 'polyline'
+    edgeShape: 'curve',
+    edgeForkPosition: '50%',
+    // true | false | 'move' | 'scale', see module:component/helper/RoamController.
+    roam: false,
+    // Symbol size scale ratio in roam
+    nodeScaleRatio: 0.4,
+    // Default on center of graph
+    center: null,
+    zoom: 1,
+    // The orient of orthoginal layout, can be setted to 'LR', 'TB', 'RL', 'BT'.
+    // and the backward compatibility configuration 'horizontal = LR', 'vertical = TB'.
+    orient: 'LR',
+    symbol: 'emptyCircle',
+    symbolSize: 7,
+    expandAndCollapse: true,
+    initialTreeDepth: 2,
+    lineStyle: {
+      color: '#ccc',
+      width: 1.5,
+      curveness: 0.5
+    },
+    itemStyle: {
+      color: 'lightsteelblue',
+      borderColor: '#c23531',
+      borderWidth: 1.5
+    },
+    label: {
+      show: true,
+      color: '#555'
+    },
+    leaves: {
+      label: {
+        show: true
+      }
+    },
+    animationEasing: 'linear',
+    animationDuration: 700,
+    animationDurationUpdate: 1000
+  }
+});
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+
+/*
+* A third-party license is embeded for some of the code in this file:
+* The tree layoutHelper implementation was originally copied from
+* "d3.js"(https://github.com/d3/d3-hierarchy) with
+* some modifications made for this project.
+* (see more details in the comment of the specific method below.)
+* The use of the source code of this file is also subject to the terms
+* and consitions of the licence of "d3.js" (BSD-3Clause, see
+* </licenses/LICENSE-d3>).
+*/
+
+/**
+ * @file The layout algorithm of node-link tree diagrams. Here we using Reingold-Tilford algorithm to drawing
+ *       the tree.
+ */
+/**
+ * Initialize all computational message for following algorithm.
+ *
+ * @param  {module:echarts/data/Tree~TreeNode} root   The virtual root of the tree.
+ */
+
+function init$2(root) {
+  root.hierNode = {
+    defaultAncestor: null,
+    ancestor: root,
+    prelim: 0,
+    modifier: 0,
+    change: 0,
+    shift: 0,
+    i: 0,
+    thread: null
+  };
+  var nodes = [root];
+  var node;
+  var children;
+
+  while (node = nodes.pop()) {
+    // jshint ignore:line
+    children = node.children;
+
+    if (node.isExpand && children.length) {
+      var n = children.length;
+
+      for (var i = n - 1; i >= 0; i--) {
+        var child = children[i];
+        child.hierNode = {
+          defaultAncestor: null,
+          ancestor: child,
+          prelim: 0,
+          modifier: 0,
+          change: 0,
+          shift: 0,
+          i: i,
+          thread: null
+        };
+        nodes.push(child);
+      }
+    }
+  }
+}
+/**
+ * The implementation of this function was originally copied from "d3.js"
+ * <https://github.com/d3/d3-hierarchy/blob/4c1f038f2725d6eae2e49b61d01456400694bac4/src/tree.js>
+ * with some modifications made for this program.
+ * See the license statement at the head of this file.
+ *
+ * Computes a preliminary x coordinate for node. Before that, this function is
+ * applied recursively to the children of node, as well as the function
+ * apportion(). After spacing out the children by calling executeShifts(), the
+ * node is placed to the midpoint of its outermost children.
+ *
+ * @param  {module:echarts/data/Tree~TreeNode} node
+ * @param {Function} separation
+ */
+
+function firstWalk(node, separation) {
+  var children = node.isExpand ? node.children : [];
+  var siblings = node.parentNode.children;
+  var subtreeW = node.hierNode.i ? siblings[node.hierNode.i - 1] : null;
+
+  if (children.length) {
+    executeShifts(node);
+    var midPoint = (children[0].hierNode.prelim + children[children.length - 1].hierNode.prelim) / 2;
+
+    if (subtreeW) {
+      node.hierNode.prelim = subtreeW.hierNode.prelim + separation(node, subtreeW);
+      node.hierNode.modifier = node.hierNode.prelim - midPoint;
+    } else {
+      node.hierNode.prelim = midPoint;
+    }
+  } else if (subtreeW) {
+    node.hierNode.prelim = subtreeW.hierNode.prelim + separation(node, subtreeW);
+  }
+
+  node.parentNode.hierNode.defaultAncestor = apportion(node, subtreeW, node.parentNode.hierNode.defaultAncestor || siblings[0], separation);
+}
+/**
+ * The implementation of this function was originally copied from "d3.js"
+ * <https://github.com/d3/d3-hierarchy/blob/4c1f038f2725d6eae2e49b61d01456400694bac4/src/tree.js>
+ * with some modifications made for this program.
+ * See the license statement at the head of this file.
+ *
+ * Computes all real x-coordinates by summing up the modifiers recursively.
+ *
+ * @param  {module:echarts/data/Tree~TreeNode} node
+ */
+
+function secondWalk(node) {
+  var nodeX = node.hierNode.prelim + node.parentNode.hierNode.modifier;
+  node.setLayout({
+    x: nodeX
+  }, true);
+  node.hierNode.modifier += node.parentNode.hierNode.modifier;
+}
+function separation(cb) {
+  return arguments.length ? cb : defaultSeparation;
+}
+/**
+ * Transform the common coordinate to radial coordinate.
+ *
+ * @param  {number} x
+ * @param  {number} y
+ * @return {Object}
+ */
+
+function radialCoordinate(x, y) {
+  var radialCoor = {};
+  x -= Math.PI / 2;
+  radialCoor.x = y * Math.cos(x);
+  radialCoor.y = y * Math.sin(x);
+  return radialCoor;
+}
+/**
+ * Get the layout position of the whole view.
+ *
+ * @param {module:echarts/model/Series} seriesModel  the model object of sankey series
+ * @param {module:echarts/ExtensionAPI} api  provide the API list that the developer can call
+ * @return {module:zrender/core/BoundingRect}  size of rect to draw the sankey view
+ */
+
+function getViewRect$1(seriesModel, api) {
+  return getLayoutRect(seriesModel.getBoxLayoutParams(), {
+    width: api.getWidth(),
+    height: api.getHeight()
+  });
+}
+/**
+ * All other shifts, applied to the smaller subtrees between w- and w+, are
+ * performed by this function.
+ *
+ * The implementation of this function was originally copied from "d3.js"
+ * <https://github.com/d3/d3-hierarchy/blob/4c1f038f2725d6eae2e49b61d01456400694bac4/src/tree.js>
+ * with some modifications made for this program.
+ * See the license statement at the head of this file.
+ *
+ * @param  {module:echarts/data/Tree~TreeNode} node
+ */
+
+function executeShifts(node) {
+  var children = node.children;
+  var n = children.length;
+  var shift = 0;
+  var change = 0;
+
+  while (--n >= 0) {
+    var child = children[n];
+    child.hierNode.prelim += shift;
+    child.hierNode.modifier += shift;
+    change += child.hierNode.change;
+    shift += child.hierNode.shift + change;
+  }
+}
+/**
+ * The implementation of this function was originally copied from "d3.js"
+ * <https://github.com/d3/d3-hierarchy/blob/4c1f038f2725d6eae2e49b61d01456400694bac4/src/tree.js>
+ * with some modifications made for this program.
+ * See the license statement at the head of this file.
+ *
+ * The core of the algorithm. Here, a new subtree is combined with the
+ * previous subtrees. Threads are used to traverse the inside and outside
+ * contours of the left and right subtree up to the highest common level.
+ * Whenever two nodes of the inside contours conflict, we compute the left
+ * one of the greatest uncommon ancestors using the function nextAncestor()
+ * and call moveSubtree() to shift the subtree and prepare the shifts of
+ * smaller subtrees. Finally, we add a new thread (if necessary).
+ *
+ * @param  {module:echarts/data/Tree~TreeNode} subtreeV
+ * @param  {module:echarts/data/Tree~TreeNode} subtreeW
+ * @param  {module:echarts/data/Tree~TreeNode} ancestor
+ * @param  {Function} separation
+ * @return {module:echarts/data/Tree~TreeNode}
+ */
+
+
+function apportion(subtreeV, subtreeW, ancestor, separation) {
+  if (subtreeW) {
+    var nodeOutRight = subtreeV;
+    var nodeInRight = subtreeV;
+    var nodeOutLeft = nodeInRight.parentNode.children[0];
+    var nodeInLeft = subtreeW;
+    var sumOutRight = nodeOutRight.hierNode.modifier;
+    var sumInRight = nodeInRight.hierNode.modifier;
+    var sumOutLeft = nodeOutLeft.hierNode.modifier;
+    var sumInLeft = nodeInLeft.hierNode.modifier;
+
+    while (nodeInLeft = nextRight(nodeInLeft), nodeInRight = nextLeft(nodeInRight), nodeInLeft && nodeInRight) {
+      nodeOutRight = nextRight(nodeOutRight);
+      nodeOutLeft = nextLeft(nodeOutLeft);
+      nodeOutRight.hierNode.ancestor = subtreeV;
+      var shift = nodeInLeft.hierNode.prelim + sumInLeft - nodeInRight.hierNode.prelim - sumInRight + separation(nodeInLeft, nodeInRight);
+
+      if (shift > 0) {
+        moveSubtree(nextAncestor(nodeInLeft, subtreeV, ancestor), subtreeV, shift);
+        sumInRight += shift;
+        sumOutRight += shift;
+      }
+
+      sumInLeft += nodeInLeft.hierNode.modifier;
+      sumInRight += nodeInRight.hierNode.modifier;
+      sumOutRight += nodeOutRight.hierNode.modifier;
+      sumOutLeft += nodeOutLeft.hierNode.modifier;
+    }
+
+    if (nodeInLeft && !nextRight(nodeOutRight)) {
+      nodeOutRight.hierNode.thread = nodeInLeft;
+      nodeOutRight.hierNode.modifier += sumInLeft - sumOutRight;
+    }
+
+    if (nodeInRight && !nextLeft(nodeOutLeft)) {
+      nodeOutLeft.hierNode.thread = nodeInRight;
+      nodeOutLeft.hierNode.modifier += sumInRight - sumOutLeft;
+      ancestor = subtreeV;
+    }
+  }
+
+  return ancestor;
+}
+/**
+ * This function is used to traverse the right contour of a subtree.
+ * It returns the rightmost child of node or the thread of node. The function
+ * returns null if and only if node is on the highest depth of its subtree.
+ *
+ * @param  {module:echarts/data/Tree~TreeNode} node
+ * @return {module:echarts/data/Tree~TreeNode}
+ */
+
+
+function nextRight(node) {
+  var children = node.children;
+  return children.length && node.isExpand ? children[children.length - 1] : node.hierNode.thread;
+}
+/**
+ * This function is used to traverse the left contour of a subtree (or a subforest).
+ * It returns the leftmost child of node or the thread of node. The function
+ * returns null if and only if node is on the highest depth of its subtree.
+ *
+ * @param  {module:echarts/data/Tree~TreeNode} node
+ * @return {module:echarts/data/Tree~TreeNode}
+ */
+
+
+function nextLeft(node) {
+  var children = node.children;
+  return children.length && node.isExpand ? children[0] : node.hierNode.thread;
+}
+/**
+ * If nodeInLeft’s ancestor is a sibling of node, returns nodeInLeft’s ancestor.
+ * Otherwise, returns the specified ancestor.
+ *
+ * @param  {module:echarts/data/Tree~TreeNode} nodeInLeft
+ * @param  {module:echarts/data/Tree~TreeNode} node
+ * @param  {module:echarts/data/Tree~TreeNode} ancestor
+ * @return {module:echarts/data/Tree~TreeNode}
+ */
+
+
+function nextAncestor(nodeInLeft, node, ancestor) {
+  return nodeInLeft.hierNode.ancestor.parentNode === node.parentNode ? nodeInLeft.hierNode.ancestor : ancestor;
+}
+/**
+ * The implementation of this function was originally copied from "d3.js"
+ * <https://github.com/d3/d3-hierarchy/blob/4c1f038f2725d6eae2e49b61d01456400694bac4/src/tree.js>
+ * with some modifications made for this program.
+ * See the license statement at the head of this file.
+ *
+ * Shifts the current subtree rooted at wr.
+ * This is done by increasing prelim(w+) and modifier(w+) by shift.
+ *
+ * @param  {module:echarts/data/Tree~TreeNode} wl
+ * @param  {module:echarts/data/Tree~TreeNode} wr
+ * @param  {number} shift [description]
+ */
+
+
+function moveSubtree(wl, wr, shift) {
+  var change = shift / (wr.hierNode.i - wl.hierNode.i);
+  wr.hierNode.change -= change;
+  wr.hierNode.shift += shift;
+  wr.hierNode.modifier += shift;
+  wr.hierNode.prelim += shift;
+  wl.hierNode.change += change;
+}
+/**
+ * The implementation of this function was originally copied from "d3.js"
+ * <https://github.com/d3/d3-hierarchy/blob/4c1f038f2725d6eae2e49b61d01456400694bac4/src/tree.js>
+ * with some modifications made for this program.
+ * See the license statement at the head of this file.
+ */
+
+
+function defaultSeparation(node1, node2) {
+  return node1.parentNode === node2.parentNode ? 1 : 2;
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+
+/**
+ * Simple view coordinate system
+ * Mapping given x, y to transformd view x, y
+ */
+var v2ApplyTransform$1 = applyTransform; // Dummy transform node
+
+function TransformDummy() {
+  Transformable.call(this);
+}
+
+mixin(TransformDummy, Transformable);
+
+function View(name) {
+  /**
+   * @type {string}
+   */
+  this.name = name;
+  /**
+   * @type {Object}
+   */
+
+  this.zoomLimit;
+  Transformable.call(this);
+  this._roamTransformable = new TransformDummy();
+  this._rawTransformable = new TransformDummy();
+  this._center;
+  this._zoom;
+}
+
+View.prototype = {
+  constructor: View,
+  type: 'view',
+
+  /**
+   * @param {Array.<string>}
+   * @readOnly
+   */
+  dimensions: ['x', 'y'],
+
+  /**
+   * Set bounding rect
+   * @param {number} x
+   * @param {number} y
+   * @param {number} width
+   * @param {number} height
+   */
+  // PENDING to getRect
+  setBoundingRect: function (x, y, width, height) {
+    this._rect = new BoundingRect(x, y, width, height);
+    return this._rect;
+  },
+
+  /**
+   * @return {module:zrender/core/BoundingRect}
+   */
+  // PENDING to getRect
+  getBoundingRect: function () {
+    return this._rect;
+  },
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {number} width
+   * @param {number} height
+   */
+  setViewRect: function (x, y, width, height) {
+    this.transformTo(x, y, width, height);
+    this._viewRect = new BoundingRect(x, y, width, height);
+  },
+
+  /**
+   * Transformed to particular position and size
+   * @param {number} x
+   * @param {number} y
+   * @param {number} width
+   * @param {number} height
+   */
+  transformTo: function (x, y, width, height) {
+    var rect = this.getBoundingRect();
+    var rawTransform = this._rawTransformable;
+    rawTransform.transform = rect.calculateTransform(new BoundingRect(x, y, width, height));
+    rawTransform.decomposeTransform();
+
+    this._updateTransform();
+  },
+
+  /**
+   * Set center of view
+   * @param {Array.<number>} [centerCoord]
+   */
+  setCenter: function (centerCoord) {
+    if (!centerCoord) {
+      return;
+    }
+
+    this._center = centerCoord;
+
+    this._updateCenterAndZoom();
+  },
+
+  /**
+   * @param {number} zoom
+   */
+  setZoom: function (zoom) {
+    zoom = zoom || 1;
+    var zoomLimit = this.zoomLimit;
+
+    if (zoomLimit) {
+      if (zoomLimit.max != null) {
+        zoom = Math.min(zoomLimit.max, zoom);
+      }
+
+      if (zoomLimit.min != null) {
+        zoom = Math.max(zoomLimit.min, zoom);
+      }
+    }
+
+    this._zoom = zoom;
+
+    this._updateCenterAndZoom();
+  },
+
+  /**
+   * Get default center without roam
+   */
+  getDefaultCenter: function () {
+    // Rect before any transform
+    var rawRect = this.getBoundingRect();
+    var cx = rawRect.x + rawRect.width / 2;
+    var cy = rawRect.y + rawRect.height / 2;
+    return [cx, cy];
+  },
+  getCenter: function () {
+    return this._center || this.getDefaultCenter();
+  },
+  getZoom: function () {
+    return this._zoom || 1;
+  },
+
+  /**
+   * @return {Array.<number}
+   */
+  getRoamTransform: function () {
+    return this._roamTransformable.getLocalTransform();
+  },
+
+  /**
+   * Remove roam
+   */
+  _updateCenterAndZoom: function () {
+    // Must update after view transform updated
+    var rawTransformMatrix = this._rawTransformable.getLocalTransform();
+
+    var roamTransform = this._roamTransformable;
+    var defaultCenter = this.getDefaultCenter();
+    var center = this.getCenter();
+    var zoom = this.getZoom();
+    center = applyTransform([], center, rawTransformMatrix);
+    defaultCenter = applyTransform([], defaultCenter, rawTransformMatrix);
+    roamTransform.origin = center;
+    roamTransform.position = [defaultCenter[0] - center[0], defaultCenter[1] - center[1]];
+    roamTransform.scale = [zoom, zoom];
+
+    this._updateTransform();
+  },
+
+  /**
+   * Update transform from roam and mapLocation
+   * @private
+   */
+  _updateTransform: function () {
+    var roamTransformable = this._roamTransformable;
+    var rawTransformable = this._rawTransformable;
+    rawTransformable.parent = roamTransformable;
+    roamTransformable.updateTransform();
+    rawTransformable.updateTransform();
+    copy$1(this.transform || (this.transform = []), rawTransformable.transform || create$1());
+    this._rawTransform = rawTransformable.getLocalTransform();
+    this.invTransform = this.invTransform || [];
+    invert(this.invTransform, this.transform);
+    this.decomposeTransform();
+  },
+  getTransformInfo: function () {
+    var roamTransform = this._roamTransformable.transform;
+    var rawTransformable = this._rawTransformable;
+    return {
+      roamTransform: roamTransform ? slice(roamTransform) : create$1(),
+      rawScale: slice(rawTransformable.scale),
+      rawPosition: slice(rawTransformable.position)
+    };
+  },
+
+  /**
+   * @return {module:zrender/core/BoundingRect}
+   */
+  getViewRect: function () {
+    return this._viewRect;
+  },
+
+  /**
+   * Get view rect after roam transform
+   * @return {module:zrender/core/BoundingRect}
+   */
+  getViewRectAfterRoam: function () {
+    var rect = this.getBoundingRect().clone();
+    rect.applyTransform(this.transform);
+    return rect;
+  },
+
+  /**
+   * Convert a single (lon, lat) data item to (x, y) point.
+   * @param {Array.<number>} data
+   * @param {boolean} noRoam
+   * @param {Array.<number>} [out]
+   * @return {Array.<number>}
+   */
+  dataToPoint: function (data, noRoam, out) {
+    var transform = noRoam ? this._rawTransform : this.transform;
+    out = out || [];
+    return transform ? v2ApplyTransform$1(out, data, transform) : copy(out, data);
+  },
+
+  /**
+   * Convert a (x, y) point to (lon, lat) data
+   * @param {Array.<number>} point
+   * @return {Array.<number>}
+   */
+  pointToData: function (point) {
+    var invTransform = this.invTransform;
+    return invTransform ? v2ApplyTransform$1([], point, invTransform) : [point[0], point[1]];
+  },
+
+  /**
+   * @implements
+   * see {module:echarts/CoodinateSystem}
+   */
+  convertToPixel: curry(doConvert, 'dataToPoint'),
+
+  /**
+   * @implements
+   * see {module:echarts/CoodinateSystem}
+   */
+  convertFromPixel: curry(doConvert, 'pointToData'),
+
+  /**
+   * @implements
+   * see {module:echarts/CoodinateSystem}
+   */
+  containPoint: function (point) {
+    return this.getViewRectAfterRoam().contain(point[0], point[1]);
+  }
+  /**
+   * @return {number}
+   */
+  // getScalarScale: function () {
+  //     // Use determinant square root of transform to mutiply scalar
+  //     var m = this.transform;
+  //     var det = Math.sqrt(Math.abs(m[0] * m[3] - m[2] * m[1]));
+  //     return det;
+  // }
+
+};
+mixin(View, Transformable);
+
+function doConvert(methodName, ecModel, finder, value) {
+  var seriesModel = finder.seriesModel;
+  var coordSys = seriesModel ? seriesModel.coordinateSystem : null; // e.g., graph.
+
+  return coordSys === this ? coordSys[methodName](value) : null;
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+
+/**
+ * For geo and graph.
+ *
+ * @param {Object} controllerHost
+ * @param {module:zrender/Element} controllerHost.target
+ */
+function updateViewOnPan(controllerHost, dx, dy) {
+  var target = controllerHost.target;
+  var pos = target.position;
+  pos[0] += dx;
+  pos[1] += dy;
+  target.dirty();
+}
+/**
+ * For geo and graph.
+ *
+ * @param {Object} controllerHost
+ * @param {module:zrender/Element} controllerHost.target
+ * @param {number} controllerHost.zoom
+ * @param {number} controllerHost.zoomLimit like: {min: 1, max: 2}
+ */
+
+function updateViewOnZoom(controllerHost, zoomDelta, zoomX, zoomY) {
+  var target = controllerHost.target;
+  var zoomLimit = controllerHost.zoomLimit;
+  var pos = target.position;
+  var scale = target.scale;
+  var newZoom = controllerHost.zoom = controllerHost.zoom || 1;
+  newZoom *= zoomDelta;
+
+  if (zoomLimit) {
+    var zoomMin = zoomLimit.min || 0;
+    var zoomMax = zoomLimit.max || Infinity;
+    newZoom = Math.max(Math.min(zoomMax, newZoom), zoomMin);
+  }
+
+  var zoomScale = newZoom / controllerHost.zoom;
+  controllerHost.zoom = newZoom; // Keep the mouse center when scaling
+
+  pos[0] -= (zoomX - pos[0]) * (zoomScale - 1);
+  pos[1] -= (zoomY - pos[1]) * (zoomScale - 1);
+  scale[0] *= zoomScale;
+  scale[1] *= zoomScale;
+  target.dirty();
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+var ATTR = '\0_ec_interaction_mutex';
+
+
+function isTaken(zr, resourceKey) {
+  return !!getStore(zr)[resourceKey];
+}
+
+function getStore(zr) {
+  return zr[ATTR] || (zr[ATTR] = {});
+}
+/**
+ * payload: {
+ *     type: 'takeGlobalCursor',
+ *     key: 'dataZoomSelect', or 'brush', or ...,
+ *         If no userKey, release global cursor.
+ * }
+ */
+
+
+registerAction({
+  type: 'takeGlobalCursor',
+  event: 'globalCursorTaken',
+  update: 'update'
+}, function () {});
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+/**
+ * @alias module:echarts/component/helper/RoamController
+ * @constructor
+ * @mixin {module:zrender/mixin/Eventful}
+ *
+ * @param {module:zrender/zrender~ZRender} zr
+ */
+
+function RoamController(zr) {
+  /**
+   * @type {Function}
+   */
+  this.pointerChecker;
+  /**
+   * @type {module:zrender}
+   */
+
+  this._zr = zr;
+  /**
+   * @type {Object}
+   */
+
+  this._opt = {}; // Avoid two roamController bind the same handler
+
+  var bind$$1 = bind;
+  var mousedownHandler = bind$$1(mousedown, this);
+  var mousemoveHandler = bind$$1(mousemove, this);
+  var mouseupHandler = bind$$1(mouseup, this);
+  var mousewheelHandler = bind$$1(mousewheel, this);
+  var pinchHandler = bind$$1(pinch, this);
+  Eventful.call(this);
+  /**
+   * @param {Function} pointerChecker
+   *                   input: x, y
+   *                   output: boolean
+   */
+
+  this.setPointerChecker = function (pointerChecker) {
+    this.pointerChecker = pointerChecker;
+  };
+  /**
+   * Notice: only enable needed types. For example, if 'zoom'
+   * is not needed, 'zoom' should not be enabled, otherwise
+   * default mousewheel behaviour (scroll page) will be disabled.
+   *
+   * @param  {boolean|string} [controlType=true] Specify the control type,
+   *                          which can be null/undefined or true/false
+   *                          or 'pan/move' or 'zoom'/'scale'
+   * @param {Object} [opt]
+   * @param {Object} [opt.zoomOnMouseWheel=true] The value can be: true / false / 'shift' / 'ctrl' / 'alt'.
+   * @param {Object} [opt.moveOnMouseMove=true] The value can be: true / false / 'shift' / 'ctrl' / 'alt'.
+   * @param {Object} [opt.moveOnMouseWheel=false] The value can be: true / false / 'shift' / 'ctrl' / 'alt'.
+   * @param {Object} [opt.preventDefaultMouseMove=true] When pan.
+   */
+
+
+  this.enable = function (controlType, opt) {
+    // Disable previous first
+    this.disable();
+    this._opt = defaults(clone(opt) || {}, {
+      zoomOnMouseWheel: true,
+      moveOnMouseMove: true,
+      // By default, wheel do not trigger move.
+      moveOnMouseWheel: false,
+      preventDefaultMouseMove: true
+    });
+
+    if (controlType == null) {
+      controlType = true;
+    }
+
+    if (controlType === true || controlType === 'move' || controlType === 'pan') {
+      zr.on('mousedown', mousedownHandler);
+      zr.on('mousemove', mousemoveHandler);
+      zr.on('mouseup', mouseupHandler);
+    }
+
+    if (controlType === true || controlType === 'scale' || controlType === 'zoom') {
+      zr.on('mousewheel', mousewheelHandler);
+      zr.on('pinch', pinchHandler);
+    }
+  };
+
+  this.disable = function () {
+    zr.off('mousedown', mousedownHandler);
+    zr.off('mousemove', mousemoveHandler);
+    zr.off('mouseup', mouseupHandler);
+    zr.off('mousewheel', mousewheelHandler);
+    zr.off('pinch', pinchHandler);
+  };
+
+  this.dispose = this.disable;
+
+  this.isDragging = function () {
+    return this._dragging;
+  };
+
+  this.isPinching = function () {
+    return this._pinching;
+  };
+}
+
+mixin(RoamController, Eventful);
+
+function mousedown(e) {
+  if (isMiddleOrRightButtonOnMouseUpDown(e) || e.target && e.target.draggable) {
+    return;
+  }
+
+  var x = e.offsetX;
+  var y = e.offsetY; // Only check on mosedown, but not mousemove.
+  // Mouse can be out of target when mouse moving.
+
+  if (this.pointerChecker && this.pointerChecker(e, x, y)) {
+    this._x = x;
+    this._y = y;
+    this._dragging = true;
+  }
+}
+
+function mousemove(e) {
+  if (!this._dragging || !isAvailableBehavior('moveOnMouseMove', e, this._opt) || e.gestureEvent === 'pinch' || isTaken(this._zr, 'globalPan')) {
+    return;
+  }
+
+  var x = e.offsetX;
+  var y = e.offsetY;
+  var oldX = this._x;
+  var oldY = this._y;
+  var dx = x - oldX;
+  var dy = y - oldY;
+  this._x = x;
+  this._y = y;
+  this._opt.preventDefaultMouseMove && stop(e.event);
+  trigger(this, 'pan', 'moveOnMouseMove', e, {
+    dx: dx,
+    dy: dy,
+    oldX: oldX,
+    oldY: oldY,
+    newX: x,
+    newY: y
+  });
+}
+
+function mouseup(e) {
+  if (!isMiddleOrRightButtonOnMouseUpDown(e)) {
+    this._dragging = false;
+  }
+}
+
+function mousewheel(e) {
+  var shouldZoom = isAvailableBehavior('zoomOnMouseWheel', e, this._opt);
+  var shouldMove = isAvailableBehavior('moveOnMouseWheel', e, this._opt);
+  var wheelDelta = e.wheelDelta;
+  var absWheelDeltaDelta = Math.abs(wheelDelta);
+  var originX = e.offsetX;
+  var originY = e.offsetY; // wheelDelta maybe -0 in chrome mac.
+
+  if (wheelDelta === 0 || !shouldZoom && !shouldMove) {
+    return;
+  } // If both `shouldZoom` and `shouldMove` is true, trigger
+  // their event both, and the final behavior is determined
+  // by event listener themselves.
+
+
+  if (shouldZoom) {
+    // Convenience:
+    // Mac and VM Windows on Mac: scroll up: zoom out.
+    // Windows: scroll up: zoom in.
+    // FIXME: Should do more test in different environment.
+    // wheelDelta is too complicated in difference nvironment
+    // (https://developer.mozilla.org/en-US/docs/Web/Events/mousewheel),
+    // although it has been normallized by zrender.
+    // wheelDelta of mouse wheel is bigger than touch pad.
+    var factor = absWheelDeltaDelta > 3 ? 1.4 : absWheelDeltaDelta > 1 ? 1.2 : 1.1;
+    var scale = wheelDelta > 0 ? factor : 1 / factor;
+    checkPointerAndTrigger(this, 'zoom', 'zoomOnMouseWheel', e, {
+      scale: scale,
+      originX: originX,
+      originY: originY
+    });
+  }
+
+  if (shouldMove) {
+    // FIXME: Should do more test in different environment.
+    var absDelta = Math.abs(wheelDelta); // wheelDelta of mouse wheel is bigger than touch pad.
+
+    var scrollDelta = (wheelDelta > 0 ? 1 : -1) * (absDelta > 3 ? 0.4 : absDelta > 1 ? 0.15 : 0.05);
+    checkPointerAndTrigger(this, 'scrollMove', 'moveOnMouseWheel', e, {
+      scrollDelta: scrollDelta,
+      originX: originX,
+      originY: originY
+    });
+  }
+}
+
+function pinch(e) {
+  if (isTaken(this._zr, 'globalPan')) {
+    return;
+  }
+
+  var scale = e.pinchScale > 1 ? 1.1 : 1 / 1.1;
+  checkPointerAndTrigger(this, 'zoom', null, e, {
+    scale: scale,
+    originX: e.pinchX,
+    originY: e.pinchY
+  });
+}
+
+function checkPointerAndTrigger(controller, eventName, behaviorToCheck, e, contollerEvent) {
+  if (controller.pointerChecker && controller.pointerChecker(e, contollerEvent.originX, contollerEvent.originY)) {
+    // When mouse is out of roamController rect,
+    // default befavoius should not be be disabled, otherwise
+    // page sliding is disabled, contrary to expectation.
+    stop(e.event);
+    trigger(controller, eventName, behaviorToCheck, e, contollerEvent);
+  }
+}
+
+function trigger(controller, eventName, behaviorToCheck, e, contollerEvent) {
+  // Also provide behavior checker for event listener, for some case that
+  // multiple components share one listener.
+  contollerEvent.isAvailableBehavior = bind(isAvailableBehavior, null, behaviorToCheck, e);
+  controller.trigger(eventName, contollerEvent);
+} // settings: {
+//     zoomOnMouseWheel
+//     moveOnMouseMove
+//     moveOnMouseWheel
+// }
+// The value can be: true / false / 'shift' / 'ctrl' / 'alt'.
+
+
+function isAvailableBehavior(behaviorToCheck, e, settings) {
+  var setting = settings[behaviorToCheck];
+  return !behaviorToCheck || setting && (!isString(setting) || e.event[setting + 'Key']);
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+var IRRELEVANT_EXCLUDES = {
+  'axisPointer': 1,
+  'tooltip': 1,
+  'brush': 1
+};
+/**
+ * Avoid that: mouse click on a elements that is over geo or graph,
+ * but roam is triggered.
+ */
+
+function onIrrelevantElement(e, api, targetCoordSysModel) {
+  var model = api.getComponentByElement(e.topTarget); // If model is axisModel, it works only if it is injected with coordinateSystem.
+
+  var coordSys = model && model.coordinateSystem;
+  return model && model !== targetCoordSysModel && !IRRELEVANT_EXCLUDES[model.mainType] && coordSys && coordSys.model !== targetCoordSysModel;
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+var TreeShape = extendShape({
+  shape: {
+    parentPoint: [],
+    childPoints: [],
+    orient: '',
+    forkPosition: ''
+  },
+  style: {
+    stroke: '#000',
+    fill: null
+  },
+  buildPath: function (ctx, shape) {
+    var childPoints = shape.childPoints;
+    var childLen = childPoints.length;
+    var parentPoint = shape.parentPoint;
+    var firstChildPos = childPoints[0];
+    var lastChildPos = childPoints[childLen - 1];
+
+    if (childLen === 1) {
+      ctx.moveTo(parentPoint[0], parentPoint[1]);
+      ctx.lineTo(firstChildPos[0], firstChildPos[1]);
+      return;
+    }
+
+    var orient = shape.orient;
+    var forkDim = orient === 'TB' || orient === 'BT' ? 0 : 1;
+    var otherDim = 1 - forkDim;
+    var forkPosition = parsePercent$1(shape.forkPosition, 1);
+    var tmpPoint = [];
+    tmpPoint[forkDim] = parentPoint[forkDim];
+    tmpPoint[otherDim] = parentPoint[otherDim] + (lastChildPos[otherDim] - parentPoint[otherDim]) * forkPosition;
+    ctx.moveTo(parentPoint[0], parentPoint[1]);
+    ctx.lineTo(tmpPoint[0], tmpPoint[1]);
+    ctx.moveTo(firstChildPos[0], firstChildPos[1]);
+    tmpPoint[forkDim] = firstChildPos[forkDim];
+    ctx.lineTo(tmpPoint[0], tmpPoint[1]);
+    tmpPoint[forkDim] = lastChildPos[forkDim];
+    ctx.lineTo(tmpPoint[0], tmpPoint[1]);
+    ctx.lineTo(lastChildPos[0], lastChildPos[1]);
+
+    for (var i = 1; i < childLen - 1; i++) {
+      var point = childPoints[i];
+      ctx.moveTo(point[0], point[1]);
+      tmpPoint[forkDim] = point[forkDim];
+      ctx.lineTo(tmpPoint[0], tmpPoint[1]);
+    }
+  }
+});
+extendChartView({
+  type: 'tree',
+
+  /**
+   * Init the chart
+   * @override
+   * @param  {module:echarts/model/Global} ecModel
+   * @param  {module:echarts/ExtensionAPI} api
+   */
+  init: function (ecModel, api) {
+    /**
+     * @private
+     * @type {module:echarts/data/Tree}
+     */
+    this._oldTree;
+    /**
+     * @private
+     * @type {module:zrender/container/Group}
+     */
+
+    this._mainGroup = new Group();
+    /**
+     * @private
+     * @type {module:echarts/componet/helper/RoamController}
+     */
+
+    this._controller = new RoamController(api.getZr());
+    this._controllerHost = {
+      target: this.group
+    };
+    this.group.add(this._mainGroup);
+  },
+  render: function (seriesModel, ecModel, api, payload) {
+    var data = seriesModel.getData();
+    var layoutInfo = seriesModel.layoutInfo;
+    var group = this._mainGroup;
+    var layout = seriesModel.get('layout');
+
+    if (layout === 'radial') {
+      group.attr('position', [layoutInfo.x + layoutInfo.width / 2, layoutInfo.y + layoutInfo.height / 2]);
+    } else {
+      group.attr('position', [layoutInfo.x, layoutInfo.y]);
+    }
+
+    this._updateViewCoordSys(seriesModel, layoutInfo, layout);
+
+    this._updateController(seriesModel, ecModel, api);
+
+    var oldData = this._data;
+    var seriesScope = {
+      expandAndCollapse: seriesModel.get('expandAndCollapse'),
+      layout: layout,
+      edgeShape: seriesModel.get('edgeShape'),
+      edgeForkPosition: seriesModel.get('edgeForkPosition'),
+      orient: seriesModel.getOrient(),
+      curvature: seriesModel.get('lineStyle.curveness'),
+      symbolRotate: seriesModel.get('symbolRotate'),
+      symbolOffset: seriesModel.get('symbolOffset'),
+      hoverAnimation: seriesModel.get('hoverAnimation'),
+      useNameLabel: true,
+      fadeIn: true
+    };
+    data.diff(oldData).add(function (newIdx) {
+      if (symbolNeedsDraw$1(data, newIdx)) {
+        // Create node and edge
+        updateNode(data, newIdx, null, group, seriesModel, seriesScope);
+      }
+    }).update(function (newIdx, oldIdx) {
+      var symbolEl = oldData.getItemGraphicEl(oldIdx);
+
+      if (!symbolNeedsDraw$1(data, newIdx)) {
+        symbolEl && removeNode(oldData, oldIdx, symbolEl, group, seriesModel, seriesScope);
+        return;
+      } // Update node and edge
+
+
+      updateNode(data, newIdx, symbolEl, group, seriesModel, seriesScope);
+    }).remove(function (oldIdx) {
+      var symbolEl = oldData.getItemGraphicEl(oldIdx); // When remove a collapsed node of subtree, since the collapsed
+      // node haven't been initialized with a symbol element,
+      // you can't found it's symbol element through index.
+      // so if we want to remove the symbol element we should insure
+      // that the symbol element is not null.
+
+      if (symbolEl) {
+        removeNode(oldData, oldIdx, symbolEl, group, seriesModel, seriesScope);
+      }
+    }).execute();
+    this._nodeScaleRatio = seriesModel.get('nodeScaleRatio');
+
+    this._updateNodeAndLinkScale(seriesModel);
+
+    if (seriesScope.expandAndCollapse === true) {
+      data.eachItemGraphicEl(function (el, dataIndex) {
+        el.off('click').on('click', function () {
+          api.dispatchAction({
+            type: 'treeExpandAndCollapse',
+            seriesId: seriesModel.id,
+            dataIndex: dataIndex
+          });
+        });
+      });
+    }
+
+    this._data = data;
+  },
+  _updateViewCoordSys: function (seriesModel) {
+    var data = seriesModel.getData();
+    var points = [];
+    data.each(function (idx) {
+      var layout = data.getItemLayout(idx);
+
+      if (layout && !isNaN(layout.x) && !isNaN(layout.y)) {
+        points.push([+layout.x, +layout.y]);
+      }
+    });
+    var min = [];
+    var max = [];
+    fromPoints(points, min, max); // If don't Store min max when collapse the root node after roam,
+    // the root node will disappear.
+
+    var oldMin = this._min;
+    var oldMax = this._max; // If width or height is 0
+
+    if (max[0] - min[0] === 0) {
+      min[0] = oldMin ? oldMin[0] : min[0] - 1;
+      max[0] = oldMax ? oldMax[0] : max[0] + 1;
+    }
+
+    if (max[1] - min[1] === 0) {
+      min[1] = oldMin ? oldMin[1] : min[1] - 1;
+      max[1] = oldMax ? oldMax[1] : max[1] + 1;
+    }
+
+    var viewCoordSys = seriesModel.coordinateSystem = new View();
+    viewCoordSys.zoomLimit = seriesModel.get('scaleLimit');
+    viewCoordSys.setBoundingRect(min[0], min[1], max[0] - min[0], max[1] - min[1]);
+    viewCoordSys.setCenter(seriesModel.get('center'));
+    viewCoordSys.setZoom(seriesModel.get('zoom')); // Here we use viewCoordSys just for computing the 'position' and 'scale' of the group
+
+    this.group.attr({
+      position: viewCoordSys.position,
+      scale: viewCoordSys.scale
+    });
+    this._viewCoordSys = viewCoordSys;
+    this._min = min;
+    this._max = max;
+  },
+  _updateController: function (seriesModel, ecModel, api) {
+    var controller = this._controller;
+    var controllerHost = this._controllerHost;
+    var group = this.group;
+    controller.setPointerChecker(function (e, x, y) {
+      var rect = group.getBoundingRect();
+      rect.applyTransform(group.transform);
+      return rect.contain(x, y) && !onIrrelevantElement(e, api, seriesModel);
+    });
+    controller.enable(seriesModel.get('roam'));
+    controllerHost.zoomLimit = seriesModel.get('scaleLimit');
+    controllerHost.zoom = seriesModel.coordinateSystem.getZoom();
+    controller.off('pan').off('zoom').on('pan', function (e) {
+      updateViewOnPan(controllerHost, e.dx, e.dy);
+      api.dispatchAction({
+        seriesId: seriesModel.id,
+        type: 'treeRoam',
+        dx: e.dx,
+        dy: e.dy
+      });
+    }, this).on('zoom', function (e) {
+      updateViewOnZoom(controllerHost, e.scale, e.originX, e.originY);
+      api.dispatchAction({
+        seriesId: seriesModel.id,
+        type: 'treeRoam',
+        zoom: e.scale,
+        originX: e.originX,
+        originY: e.originY
+      });
+
+      this._updateNodeAndLinkScale(seriesModel);
+    }, this);
+  },
+  _updateNodeAndLinkScale: function (seriesModel) {
+    var data = seriesModel.getData();
+
+    var nodeScale = this._getNodeGlobalScale(seriesModel);
+
+    var invScale = [nodeScale, nodeScale];
+    data.eachItemGraphicEl(function (el, idx) {
+      el.attr('scale', invScale);
+    });
+  },
+  _getNodeGlobalScale: function (seriesModel) {
+    var coordSys = seriesModel.coordinateSystem;
+
+    if (coordSys.type !== 'view') {
+      return 1;
+    }
+
+    var nodeScaleRatio = this._nodeScaleRatio;
+    var groupScale = coordSys.scale;
+    var groupZoom = groupScale && groupScale[0] || 1; // Scale node when zoom changes
+
+    var roamZoom = coordSys.getZoom();
+    var nodeScale = (roamZoom - 1) * nodeScaleRatio + 1;
+    return nodeScale / groupZoom;
+  },
+  dispose: function () {
+    this._controller && this._controller.dispose();
+    this._controllerHost = {};
+  },
+  remove: function () {
+    this._mainGroup.removeAll();
+
+    this._data = null;
+  }
+});
+
+function symbolNeedsDraw$1(data, dataIndex) {
+  var layout = data.getItemLayout(dataIndex);
+  return layout && !isNaN(layout.x) && !isNaN(layout.y) && data.getItemVisual(dataIndex, 'symbol') !== 'none';
+}
+
+function getTreeNodeStyle(node, itemModel, seriesScope) {
+  seriesScope.itemModel = itemModel;
+  seriesScope.itemStyle = itemModel.getModel('itemStyle').getItemStyle();
+  seriesScope.hoverItemStyle = itemModel.getModel('emphasis.itemStyle').getItemStyle();
+  seriesScope.lineStyle = itemModel.getModel('lineStyle').getLineStyle();
+  seriesScope.labelModel = itemModel.getModel('label');
+  seriesScope.hoverLabelModel = itemModel.getModel('emphasis.label');
+
+  if (node.isExpand === false && node.children.length !== 0) {
+    seriesScope.symbolInnerColor = seriesScope.itemStyle.fill;
+  } else {
+    seriesScope.symbolInnerColor = '#fff';
+  }
+
+  return seriesScope;
+}
+
+function updateNode(data, dataIndex, symbolEl, group, seriesModel, seriesScope) {
+  var isInit = !symbolEl;
+  var node = data.tree.getNodeByDataIndex(dataIndex);
+  var itemModel = node.getModel();
+  var seriesScope = getTreeNodeStyle(node, itemModel, seriesScope);
+  var virtualRoot = data.tree.root;
+  var source = node.parentNode === virtualRoot ? node : node.parentNode || node;
+  var sourceSymbolEl = data.getItemGraphicEl(source.dataIndex);
+  var sourceLayout = source.getLayout();
+  var sourceOldLayout = sourceSymbolEl ? {
+    x: sourceSymbolEl.position[0],
+    y: sourceSymbolEl.position[1],
+    rawX: sourceSymbolEl.__radialOldRawX,
+    rawY: sourceSymbolEl.__radialOldRawY
+  } : sourceLayout;
+  var targetLayout = node.getLayout();
+
+  if (isInit) {
+    symbolEl = new SymbolClz$1(data, dataIndex, seriesScope);
+    symbolEl.attr('position', [sourceOldLayout.x, sourceOldLayout.y]);
+  } else {
+    symbolEl.updateData(data, dataIndex, seriesScope);
+  }
+
+  symbolEl.__radialOldRawX = symbolEl.__radialRawX;
+  symbolEl.__radialOldRawY = symbolEl.__radialRawY;
+  symbolEl.__radialRawX = targetLayout.rawX;
+  symbolEl.__radialRawY = targetLayout.rawY;
+  group.add(symbolEl);
+  data.setItemGraphicEl(dataIndex, symbolEl);
+  updateProps(symbolEl, {
+    position: [targetLayout.x, targetLayout.y]
+  }, seriesModel);
+  var symbolPath = symbolEl.getSymbolPath();
+
+  if (seriesScope.layout === 'radial') {
+    var realRoot = virtualRoot.children[0];
+    var rootLayout = realRoot.getLayout();
+    var length = realRoot.children.length;
+    var rad;
+    var isLeft;
+
+    if (targetLayout.x === rootLayout.x && node.isExpand === true) {
+      var center = {};
+      center.x = (realRoot.children[0].getLayout().x + realRoot.children[length - 1].getLayout().x) / 2;
+      center.y = (realRoot.children[0].getLayout().y + realRoot.children[length - 1].getLayout().y) / 2;
+      rad = Math.atan2(center.y - rootLayout.y, center.x - rootLayout.x);
+
+      if (rad < 0) {
+        rad = Math.PI * 2 + rad;
+      }
+
+      isLeft = center.x < rootLayout.x;
+
+      if (isLeft) {
+        rad = rad - Math.PI;
+      }
+    } else {
+      rad = Math.atan2(targetLayout.y - rootLayout.y, targetLayout.x - rootLayout.x);
+
+      if (rad < 0) {
+        rad = Math.PI * 2 + rad;
+      }
+
+      if (node.children.length === 0 || node.children.length !== 0 && node.isExpand === false) {
+        isLeft = targetLayout.x < rootLayout.x;
+
+        if (isLeft) {
+          rad = rad - Math.PI;
+        }
+      } else {
+        isLeft = targetLayout.x > rootLayout.x;
+
+        if (!isLeft) {
+          rad = rad - Math.PI;
+        }
+      }
+    }
+
+    var textPosition = isLeft ? 'left' : 'right';
+    var rotate = seriesScope.labelModel.get('rotate');
+    var labelRotateRadian = rotate * (Math.PI / 180);
+    symbolPath.setStyle({
+      textPosition: seriesScope.labelModel.get('position') || textPosition,
+      textRotation: rotate == null ? -rad : labelRotateRadian,
+      textOrigin: 'center',
+      verticalAlign: 'middle'
+    });
+  }
+
+  drawEdge(seriesModel, node, virtualRoot, symbolEl, sourceOldLayout, sourceLayout, targetLayout, group, seriesScope);
+}
+
+function drawEdge(seriesModel, node, virtualRoot, symbolEl, sourceOldLayout, sourceLayout, targetLayout, group, seriesScope) {
+  var edgeShape = seriesScope.edgeShape;
+  var edge = symbolEl.__edge;
+
+  if (edgeShape === 'curve') {
+    if (node.parentNode && node.parentNode !== virtualRoot) {
+      if (!edge) {
+        edge = symbolEl.__edge = new BezierCurve({
+          shape: getEdgeShape(seriesScope, sourceOldLayout, sourceOldLayout),
+          style: defaults({
+            opacity: 0,
+            strokeNoScale: true
+          }, seriesScope.lineStyle)
+        });
+      }
+
+      updateProps(edge, {
+        shape: getEdgeShape(seriesScope, sourceLayout, targetLayout),
+        style: {
+          opacity: 1
+        }
+      }, seriesModel);
+    }
+  } else if (edgeShape === 'polyline') {
+    if (seriesScope.layout === 'orthogonal') {
+      if (node !== virtualRoot && node.children && node.children.length !== 0 && node.isExpand === true) {
+        var children = node.children;
+        var childPoints = [];
+
+        for (var i = 0; i < children.length; i++) {
+          var childLayout = children[i].getLayout();
+          childPoints.push([childLayout.x, childLayout.y]);
+        }
+
+        if (!edge) {
+          edge = symbolEl.__edge = new TreeShape({
+            shape: {
+              parentPoint: [targetLayout.x, targetLayout.y],
+              childPoints: [[targetLayout.x, targetLayout.y]],
+              orient: seriesScope.orient,
+              forkPosition: seriesScope.edgeForkPosition
+            },
+            style: defaults({
+              opacity: 0,
+              strokeNoScale: true
+            }, seriesScope.lineStyle)
+          });
+        }
+
+        updateProps(edge, {
+          shape: {
+            parentPoint: [targetLayout.x, targetLayout.y],
+            childPoints: childPoints
+          },
+          style: {
+            opacity: 1
+          }
+        }, seriesModel);
+      }
+    } else {}
+  }
+
+  group.add(edge);
+}
+
+function removeNode(data, dataIndex, symbolEl, group, seriesModel, seriesScope) {
+  var node = data.tree.getNodeByDataIndex(dataIndex);
+  var virtualRoot = data.tree.root;
+  var itemModel = node.getModel();
+  var seriesScope = getTreeNodeStyle(node, itemModel, seriesScope);
+  var source = node.parentNode === virtualRoot ? node : node.parentNode || node;
+  var edgeShape = seriesScope.edgeShape;
+  var sourceLayout;
+
+  while (sourceLayout = source.getLayout(), sourceLayout == null) {
+    source = source.parentNode === virtualRoot ? source : source.parentNode || source;
+  }
+
+  updateProps(symbolEl, {
+    position: [sourceLayout.x + 1, sourceLayout.y + 1]
+  }, seriesModel, function () {
+    group.remove(symbolEl);
+    data.setItemGraphicEl(dataIndex, null);
+  });
+  symbolEl.fadeOut(null, {
+    keepLabel: true
+  });
+  var sourceSymbolEl = data.getItemGraphicEl(source.dataIndex);
+  var sourceEdge = sourceSymbolEl.__edge; // 1. when expand the sub tree, delete the children node should delete the edge of
+  // the source at the same time. because the polyline edge shape is only owned by the source.
+  // 2.when the node is the only children of the source, delete the node should delete the edge of
+  // the source at the same time. the same reason as above.
+
+  var edge = symbolEl.__edge || (source.isExpand === false || source.children.length === 1 ? sourceEdge : undefined);
+  var edgeShape = seriesScope.edgeShape;
+
+  if (edge) {
+    if (edgeShape === 'curve') {
+      updateProps(edge, {
+        shape: getEdgeShape(seriesScope, sourceLayout, sourceLayout),
+        style: {
+          opacity: 0
+        }
+      }, seriesModel, function () {
+        group.remove(edge);
+      });
+    } else if (edgeShape === 'polyline' && seriesScope.layout === 'orthogonal') {
+      updateProps(edge, {
+        shape: {
+          parentPoint: [sourceLayout.x, sourceLayout.y],
+          childPoints: [[sourceLayout.x, sourceLayout.y]]
+        },
+        style: {
+          opacity: 0
+        }
+      }, seriesModel, function () {
+        group.remove(edge);
+      });
+    }
+  }
+}
+
+function getEdgeShape(seriesScope, sourceLayout, targetLayout) {
+  var cpx1;
+  var cpy1;
+  var cpx2;
+  var cpy2;
+  var orient = seriesScope.orient;
+  var x1;
+  var x2;
+  var y1;
+  var y2;
+
+  if (seriesScope.layout === 'radial') {
+    x1 = sourceLayout.rawX;
+    y1 = sourceLayout.rawY;
+    x2 = targetLayout.rawX;
+    y2 = targetLayout.rawY;
+    var radialCoor1 = radialCoordinate(x1, y1);
+    var radialCoor2 = radialCoordinate(x1, y1 + (y2 - y1) * seriesScope.curvature);
+    var radialCoor3 = radialCoordinate(x2, y2 + (y1 - y2) * seriesScope.curvature);
+    var radialCoor4 = radialCoordinate(x2, y2);
+    return {
+      x1: radialCoor1.x,
+      y1: radialCoor1.y,
+      x2: radialCoor4.x,
+      y2: radialCoor4.y,
+      cpx1: radialCoor2.x,
+      cpy1: radialCoor2.y,
+      cpx2: radialCoor3.x,
+      cpy2: radialCoor3.y
+    };
+  } else {
+    x1 = sourceLayout.x;
+    y1 = sourceLayout.y;
+    x2 = targetLayout.x;
+    y2 = targetLayout.y;
+
+    if (orient === 'LR' || orient === 'RL') {
+      cpx1 = x1 + (x2 - x1) * seriesScope.curvature;
+      cpy1 = y1;
+      cpx2 = x2 + (x1 - x2) * seriesScope.curvature;
+      cpy2 = y2;
+    }
+
+    if (orient === 'TB' || orient === 'BT') {
+      cpx1 = x1;
+      cpy1 = y1 + (y2 - y1) * seriesScope.curvature;
+      cpx2 = x2;
+      cpy2 = y2 + (y1 - y2) * seriesScope.curvature;
+    }
+  }
+
+  return {
+    x1: x1,
+    y1: y1,
+    x2: x2,
+    y2: y2,
+    cpx1: cpx1,
+    cpy1: cpy1,
+    cpx2: cpx2,
+    cpy2: cpy2
+  };
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+
+/**
+ * @param {module:echarts/coord/View} view
+ * @param {Object} payload
+ * @param {Object} [zoomLimit]
+ */
+function updateCenterAndZoom(view, payload, zoomLimit) {
+  var previousZoom = view.getZoom();
+  var center = view.getCenter();
+  var zoom = payload.zoom;
+  var point = view.dataToPoint(center);
+
+  if (payload.dx != null && payload.dy != null) {
+    point[0] -= payload.dx;
+    point[1] -= payload.dy;
+    var center = view.pointToData(point);
+    view.setCenter(center);
+  }
+
+  if (zoom != null) {
+    if (zoomLimit) {
+      var zoomMin = zoomLimit.min || 0;
+      var zoomMax = zoomLimit.max || Infinity;
+      zoom = Math.max(Math.min(previousZoom * zoom, zoomMax), zoomMin) / previousZoom;
+    } // Zoom on given point(originX, originY)
+
+
+    view.scale[0] *= zoom;
+    view.scale[1] *= zoom;
+    var position = view.position;
+    var fixX = (payload.originX - position[0]) * (zoom - 1);
+    var fixY = (payload.originY - position[1]) * (zoom - 1);
+    position[0] -= fixX;
+    position[1] -= fixY;
+    view.updateTransform(); // Get the new center
+
+    var center = view.pointToData(point);
+    view.setCenter(center);
+    view.setZoom(zoom * previousZoom);
+  }
+
+  return {
+    center: view.getCenter(),
+    zoom: view.getZoom()
+  };
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+registerAction({
+  type: 'treeExpandAndCollapse',
+  event: 'treeExpandAndCollapse',
+  update: 'update'
+}, function (payload, ecModel) {
+  ecModel.eachComponent({
+    mainType: 'series',
+    subType: 'tree',
+    query: payload
+  }, function (seriesModel) {
+    var dataIndex = payload.dataIndex;
+    var tree = seriesModel.getData().tree;
+    var node = tree.getNodeByDataIndex(dataIndex);
+    node.isExpand = !node.isExpand;
+  });
+});
+registerAction({
+  type: 'treeRoam',
+  event: 'treeRoam',
+  // Here we set 'none' instead of 'update', because roam action
+  // just need to update the transform matrix without having to recalculate
+  // the layout. So don't need to go through the whole update process, such
+  // as 'dataPrcocess', 'coordSystemUpdate', 'layout' and so on.
+  update: 'none'
+}, function (payload, ecModel) {
+  ecModel.eachComponent({
+    mainType: 'series',
+    subType: 'tree',
+    query: payload
+  }, function (seriesModel) {
+    var coordSys = seriesModel.coordinateSystem;
+    var res = updateCenterAndZoom(coordSys, payload);
+    seriesModel.setCenter && seriesModel.setCenter(res.center);
+    seriesModel.setZoom && seriesModel.setZoom(res.zoom);
+  });
+});
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+
+/**
+ * Traverse the tree from bottom to top and do something
+ * @param  {module:echarts/data/Tree~TreeNode} root  The real root of the tree
+ * @param  {Function} callback
+ */
+function eachAfter(root, callback, separation) {
+  var nodes = [root];
+  var next = [];
+  var node;
+
+  while (node = nodes.pop()) {
+    // jshint ignore:line
+    next.push(node);
+
+    if (node.isExpand) {
+      var children = node.children;
+
+      if (children.length) {
+        for (var i = 0; i < children.length; i++) {
+          nodes.push(children[i]);
+        }
+      }
+    }
+  }
+
+  while (node = next.pop()) {
+    // jshint ignore:line
+    callback(node, separation);
+  }
+}
+/**
+ * Traverse the tree from top to bottom and do something
+ * @param  {module:echarts/data/Tree~TreeNode} root  The real root of the tree
+ * @param  {Function} callback
+ */
+
+
+function eachBefore(root, callback) {
+  var nodes = [root];
+  var node;
+
+  while (node = nodes.pop()) {
+    // jshint ignore:line
+    callback(node);
+
+    if (node.isExpand) {
+      var children = node.children;
+
+      if (children.length) {
+        for (var i = children.length - 1; i >= 0; i--) {
+          nodes.push(children[i]);
+        }
+      }
+    }
+  }
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+var treeLayout = function (ecModel, api) {
+  ecModel.eachSeriesByType('tree', function (seriesModel) {
+    commonLayout(seriesModel, api);
+  });
+};
+
+function commonLayout(seriesModel, api) {
+  var layoutInfo = getViewRect$1(seriesModel, api);
+  seriesModel.layoutInfo = layoutInfo;
+  var layout = seriesModel.get('layout');
+  var width = 0;
+  var height = 0;
+  var separation$$1 = null;
+
+  if (layout === 'radial') {
+    width = 2 * Math.PI;
+    height = Math.min(layoutInfo.height, layoutInfo.width) / 2;
+    separation$$1 = separation(function (node1, node2) {
+      return (node1.parentNode === node2.parentNode ? 1 : 2) / node1.depth;
+    });
+  } else {
+    width = layoutInfo.width;
+    height = layoutInfo.height;
+    separation$$1 = separation();
+  }
+
+  var virtualRoot = seriesModel.getData().tree.root;
+  var realRoot = virtualRoot.children[0];
+
+  if (realRoot) {
+    init$2(virtualRoot);
+    eachAfter(realRoot, firstWalk, separation$$1);
+    virtualRoot.hierNode.modifier = -realRoot.hierNode.prelim;
+    eachBefore(realRoot, secondWalk);
+    var left = realRoot;
+    var right = realRoot;
+    var bottom = realRoot;
+    eachBefore(realRoot, function (node) {
+      var x = node.getLayout().x;
+
+      if (x < left.getLayout().x) {
+        left = node;
+      }
+
+      if (x > right.getLayout().x) {
+        right = node;
+      }
+
+      if (node.depth > bottom.depth) {
+        bottom = node;
+      }
+    });
+    var delta = left === right ? 1 : separation$$1(left, right) / 2;
+    var tx = delta - left.getLayout().x;
+    var kx = 0;
+    var ky = 0;
+    var coorX = 0;
+    var coorY = 0;
+
+    if (layout === 'radial') {
+      kx = width / (right.getLayout().x + delta + tx); // here we use (node.depth - 1), bucause the real root's depth is 1
+
+      ky = height / (bottom.depth - 1 || 1);
+      eachBefore(realRoot, function (node) {
+        coorX = (node.getLayout().x + tx) * kx;
+        coorY = (node.depth - 1) * ky;
+        var finalCoor = radialCoordinate(coorX, coorY);
+        node.setLayout({
+          x: finalCoor.x,
+          y: finalCoor.y,
+          rawX: coorX,
+          rawY: coorY
+        }, true);
+      });
+    } else {
+      var orient = seriesModel.getOrient();
+
+      if (orient === 'RL' || orient === 'LR') {
+        ky = height / (right.getLayout().x + delta + tx);
+        kx = width / (bottom.depth - 1 || 1);
+        eachBefore(realRoot, function (node) {
+          coorY = (node.getLayout().x + tx) * ky;
+          coorX = orient === 'LR' ? (node.depth - 1) * kx : width - (node.depth - 1) * kx;
+          node.setLayout({
+            x: coorX,
+            y: coorY
+          }, true);
+        });
+      } else if (orient === 'TB' || orient === 'BT') {
+        kx = width / (right.getLayout().x + delta + tx);
+        ky = height / (bottom.depth - 1 || 1);
+        eachBefore(realRoot, function (node) {
+          coorX = (node.getLayout().x + tx) * kx;
+          coorY = orient === 'TB' ? (node.depth - 1) * ky : height - (node.depth - 1) * ky;
+          node.setLayout({
+            x: coorX,
+            y: coorY
+          }, true);
+        });
+      }
+    }
+  }
+}
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+registerVisual(visualSymbol('tree', 'circle'));
+registerLayout(treeLayout);
+
+/*
+* Licensed to the Apache Software Foundation (ASF) under one
+* or more contributor license agreements.  See the NOTICE file
+* distributed with this work for additional information
+* regarding copyright ownership.  The ASF licenses this file
+* to you under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance
+* with the License.  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
 function generateNodeKey(id) {
   return '_EC_' + id;
 }
@@ -42949,149 +45737,6 @@ Graph.Node = Node;
 Graph.Edge = Edge;
 enableClassCheck(Node);
 enableClassCheck(Edge);
-
-/*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
-
-/**
- * Link lists and struct (graph or tree)
- */
-var each$7 = each$1;
-var DATAS = '\0__link_datas';
-var MAIN_DATA = '\0__link_mainData'; // Caution:
-// In most case, either list or its shallow clones (see list.cloneShallow)
-// is active in echarts process. So considering heap memory consumption,
-// we do not clone tree or graph, but share them among list and its shallow clones.
-// But in some rare case, we have to keep old list (like do animation in chart). So
-// please take care that both the old list and the new list share the same tree/graph.
-
-/**
- * @param {Object} opt
- * @param {module:echarts/data/List} opt.mainData
- * @param {Object} [opt.struct] For example, instance of Graph or Tree.
- * @param {string} [opt.structAttr] designation: list[structAttr] = struct;
- * @param {Object} [opt.datas] {dataType: data},
- *                 like: {node: nodeList, edge: edgeList}.
- *                 Should contain mainData.
- * @param {Object} [opt.datasAttr] {dataType: attr},
- *                 designation: struct[datasAttr[dataType]] = list;
- */
-
-function linkList(opt) {
-  var mainData = opt.mainData;
-  var datas = opt.datas;
-
-  if (!datas) {
-    datas = {
-      main: mainData
-    };
-    opt.datasAttr = {
-      main: 'data'
-    };
-  }
-
-  opt.datas = opt.mainData = null;
-  linkAll(mainData, datas, opt); // Porxy data original methods.
-
-  each$7(datas, function (data) {
-    each$7(mainData.TRANSFERABLE_METHODS, function (methodName) {
-      data.wrapMethod(methodName, curry(transferInjection, opt));
-    });
-  }); // Beyond transfer, additional features should be added to `cloneShallow`.
-
-  mainData.wrapMethod('cloneShallow', curry(cloneShallowInjection, opt)); // Only mainData trigger change, because struct.update may trigger
-  // another changable methods, which may bring about dead lock.
-
-  each$7(mainData.CHANGABLE_METHODS, function (methodName) {
-    mainData.wrapMethod(methodName, curry(changeInjection, opt));
-  }); // Make sure datas contains mainData.
-
-  assert$1(datas[mainData.dataType] === mainData);
-}
-
-function transferInjection(opt, res) {
-  if (isMainData(this)) {
-    // Transfer datas to new main data.
-    var datas = extend({}, this[DATAS]);
-    datas[this.dataType] = res;
-    linkAll(res, datas, opt);
-  } else {
-    // Modify the reference in main data to point newData.
-    linkSingle(res, this.dataType, this[MAIN_DATA], opt);
-  }
-
-  return res;
-}
-
-function changeInjection(opt, res) {
-  opt.struct && opt.struct.update(this);
-  return res;
-}
-
-function cloneShallowInjection(opt, res) {
-  // cloneShallow, which brings about some fragilities, may be inappropriate
-  // to be exposed as an API. So for implementation simplicity we can make
-  // the restriction that cloneShallow of not-mainData should not be invoked
-  // outside, but only be invoked here.
-  each$7(res[DATAS], function (data, dataType) {
-    data !== res && linkSingle(data.cloneShallow(), dataType, res, opt);
-  });
-  return res;
-}
-/**
- * Supplement method to List.
- *
- * @public
- * @param {string} [dataType] If not specified, return mainData.
- * @return {module:echarts/data/List}
- */
-
-
-function getLinkedData(dataType) {
-  var mainData = this[MAIN_DATA];
-  return dataType == null || mainData == null ? mainData : mainData[DATAS][dataType];
-}
-
-function isMainData(data) {
-  return data[MAIN_DATA] === data;
-}
-
-function linkAll(mainData, datas, opt) {
-  mainData[DATAS] = {};
-  each$7(datas, function (data, dataType) {
-    linkSingle(data, dataType, mainData, opt);
-  });
-}
-
-function linkSingle(data, dataType, mainData, opt) {
-  mainData[DATAS][dataType] = data;
-  data[MAIN_DATA] = mainData;
-  data.dataType = dataType;
-
-  if (opt.struct) {
-    data[opt.structAttr] = opt.struct;
-    opt.struct[opt.datasAttr[dataType]] = data;
-  } // Supplement method.
-
-
-  data.getLinkedData = getLinkedData;
-}
 
 /*
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -44081,404 +46726,6 @@ function lineNeedsDraw(pts) {
 * specific language governing permissions and limitations
 * under the License.
 */
-var ATTR = '\0_ec_interaction_mutex';
-
-
-function isTaken(zr, resourceKey) {
-  return !!getStore(zr)[resourceKey];
-}
-
-function getStore(zr) {
-  return zr[ATTR] || (zr[ATTR] = {});
-}
-/**
- * payload: {
- *     type: 'takeGlobalCursor',
- *     key: 'dataZoomSelect', or 'brush', or ...,
- *         If no userKey, release global cursor.
- * }
- */
-
-
-registerAction({
-  type: 'takeGlobalCursor',
-  event: 'globalCursorTaken',
-  update: 'update'
-}, function () {});
-
-/*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
-/**
- * @alias module:echarts/component/helper/RoamController
- * @constructor
- * @mixin {module:zrender/mixin/Eventful}
- *
- * @param {module:zrender/zrender~ZRender} zr
- */
-
-function RoamController(zr) {
-  /**
-   * @type {Function}
-   */
-  this.pointerChecker;
-  /**
-   * @type {module:zrender}
-   */
-
-  this._zr = zr;
-  /**
-   * @type {Object}
-   */
-
-  this._opt = {}; // Avoid two roamController bind the same handler
-
-  var bind$$1 = bind;
-  var mousedownHandler = bind$$1(mousedown, this);
-  var mousemoveHandler = bind$$1(mousemove, this);
-  var mouseupHandler = bind$$1(mouseup, this);
-  var mousewheelHandler = bind$$1(mousewheel, this);
-  var pinchHandler = bind$$1(pinch, this);
-  Eventful.call(this);
-  /**
-   * @param {Function} pointerChecker
-   *                   input: x, y
-   *                   output: boolean
-   */
-
-  this.setPointerChecker = function (pointerChecker) {
-    this.pointerChecker = pointerChecker;
-  };
-  /**
-   * Notice: only enable needed types. For example, if 'zoom'
-   * is not needed, 'zoom' should not be enabled, otherwise
-   * default mousewheel behaviour (scroll page) will be disabled.
-   *
-   * @param  {boolean|string} [controlType=true] Specify the control type,
-   *                          which can be null/undefined or true/false
-   *                          or 'pan/move' or 'zoom'/'scale'
-   * @param {Object} [opt]
-   * @param {Object} [opt.zoomOnMouseWheel=true] The value can be: true / false / 'shift' / 'ctrl' / 'alt'.
-   * @param {Object} [opt.moveOnMouseMove=true] The value can be: true / false / 'shift' / 'ctrl' / 'alt'.
-   * @param {Object} [opt.moveOnMouseWheel=false] The value can be: true / false / 'shift' / 'ctrl' / 'alt'.
-   * @param {Object} [opt.preventDefaultMouseMove=true] When pan.
-   */
-
-
-  this.enable = function (controlType, opt) {
-    // Disable previous first
-    this.disable();
-    this._opt = defaults(clone(opt) || {}, {
-      zoomOnMouseWheel: true,
-      moveOnMouseMove: true,
-      // By default, wheel do not trigger move.
-      moveOnMouseWheel: false,
-      preventDefaultMouseMove: true
-    });
-
-    if (controlType == null) {
-      controlType = true;
-    }
-
-    if (controlType === true || controlType === 'move' || controlType === 'pan') {
-      zr.on('mousedown', mousedownHandler);
-      zr.on('mousemove', mousemoveHandler);
-      zr.on('mouseup', mouseupHandler);
-    }
-
-    if (controlType === true || controlType === 'scale' || controlType === 'zoom') {
-      zr.on('mousewheel', mousewheelHandler);
-      zr.on('pinch', pinchHandler);
-    }
-  };
-
-  this.disable = function () {
-    zr.off('mousedown', mousedownHandler);
-    zr.off('mousemove', mousemoveHandler);
-    zr.off('mouseup', mouseupHandler);
-    zr.off('mousewheel', mousewheelHandler);
-    zr.off('pinch', pinchHandler);
-  };
-
-  this.dispose = this.disable;
-
-  this.isDragging = function () {
-    return this._dragging;
-  };
-
-  this.isPinching = function () {
-    return this._pinching;
-  };
-}
-
-mixin(RoamController, Eventful);
-
-function mousedown(e) {
-  if (isMiddleOrRightButtonOnMouseUpDown(e) || e.target && e.target.draggable) {
-    return;
-  }
-
-  var x = e.offsetX;
-  var y = e.offsetY; // Only check on mosedown, but not mousemove.
-  // Mouse can be out of target when mouse moving.
-
-  if (this.pointerChecker && this.pointerChecker(e, x, y)) {
-    this._x = x;
-    this._y = y;
-    this._dragging = true;
-  }
-}
-
-function mousemove(e) {
-  if (!this._dragging || !isAvailableBehavior('moveOnMouseMove', e, this._opt) || e.gestureEvent === 'pinch' || isTaken(this._zr, 'globalPan')) {
-    return;
-  }
-
-  var x = e.offsetX;
-  var y = e.offsetY;
-  var oldX = this._x;
-  var oldY = this._y;
-  var dx = x - oldX;
-  var dy = y - oldY;
-  this._x = x;
-  this._y = y;
-  this._opt.preventDefaultMouseMove && stop(e.event);
-  trigger(this, 'pan', 'moveOnMouseMove', e, {
-    dx: dx,
-    dy: dy,
-    oldX: oldX,
-    oldY: oldY,
-    newX: x,
-    newY: y
-  });
-}
-
-function mouseup(e) {
-  if (!isMiddleOrRightButtonOnMouseUpDown(e)) {
-    this._dragging = false;
-  }
-}
-
-function mousewheel(e) {
-  var shouldZoom = isAvailableBehavior('zoomOnMouseWheel', e, this._opt);
-  var shouldMove = isAvailableBehavior('moveOnMouseWheel', e, this._opt);
-  var wheelDelta = e.wheelDelta;
-  var absWheelDeltaDelta = Math.abs(wheelDelta);
-  var originX = e.offsetX;
-  var originY = e.offsetY; // wheelDelta maybe -0 in chrome mac.
-
-  if (wheelDelta === 0 || !shouldZoom && !shouldMove) {
-    return;
-  } // If both `shouldZoom` and `shouldMove` is true, trigger
-  // their event both, and the final behavior is determined
-  // by event listener themselves.
-
-
-  if (shouldZoom) {
-    // Convenience:
-    // Mac and VM Windows on Mac: scroll up: zoom out.
-    // Windows: scroll up: zoom in.
-    // FIXME: Should do more test in different environment.
-    // wheelDelta is too complicated in difference nvironment
-    // (https://developer.mozilla.org/en-US/docs/Web/Events/mousewheel),
-    // although it has been normallized by zrender.
-    // wheelDelta of mouse wheel is bigger than touch pad.
-    var factor = absWheelDeltaDelta > 3 ? 1.4 : absWheelDeltaDelta > 1 ? 1.2 : 1.1;
-    var scale = wheelDelta > 0 ? factor : 1 / factor;
-    checkPointerAndTrigger(this, 'zoom', 'zoomOnMouseWheel', e, {
-      scale: scale,
-      originX: originX,
-      originY: originY
-    });
-  }
-
-  if (shouldMove) {
-    // FIXME: Should do more test in different environment.
-    var absDelta = Math.abs(wheelDelta); // wheelDelta of mouse wheel is bigger than touch pad.
-
-    var scrollDelta = (wheelDelta > 0 ? 1 : -1) * (absDelta > 3 ? 0.4 : absDelta > 1 ? 0.15 : 0.05);
-    checkPointerAndTrigger(this, 'scrollMove', 'moveOnMouseWheel', e, {
-      scrollDelta: scrollDelta,
-      originX: originX,
-      originY: originY
-    });
-  }
-}
-
-function pinch(e) {
-  if (isTaken(this._zr, 'globalPan')) {
-    return;
-  }
-
-  var scale = e.pinchScale > 1 ? 1.1 : 1 / 1.1;
-  checkPointerAndTrigger(this, 'zoom', null, e, {
-    scale: scale,
-    originX: e.pinchX,
-    originY: e.pinchY
-  });
-}
-
-function checkPointerAndTrigger(controller, eventName, behaviorToCheck, e, contollerEvent) {
-  if (controller.pointerChecker && controller.pointerChecker(e, contollerEvent.originX, contollerEvent.originY)) {
-    // When mouse is out of roamController rect,
-    // default befavoius should not be be disabled, otherwise
-    // page sliding is disabled, contrary to expectation.
-    stop(e.event);
-    trigger(controller, eventName, behaviorToCheck, e, contollerEvent);
-  }
-}
-
-function trigger(controller, eventName, behaviorToCheck, e, contollerEvent) {
-  // Also provide behavior checker for event listener, for some case that
-  // multiple components share one listener.
-  contollerEvent.isAvailableBehavior = bind(isAvailableBehavior, null, behaviorToCheck, e);
-  controller.trigger(eventName, contollerEvent);
-} // settings: {
-//     zoomOnMouseWheel
-//     moveOnMouseMove
-//     moveOnMouseWheel
-// }
-// The value can be: true / false / 'shift' / 'ctrl' / 'alt'.
-
-
-function isAvailableBehavior(behaviorToCheck, e, settings) {
-  var setting = settings[behaviorToCheck];
-  return !behaviorToCheck || setting && (!isString(setting) || e.event[setting + 'Key']);
-}
-
-/*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
-
-/**
- * For geo and graph.
- *
- * @param {Object} controllerHost
- * @param {module:zrender/Element} controllerHost.target
- */
-function updateViewOnPan(controllerHost, dx, dy) {
-  var target = controllerHost.target;
-  var pos = target.position;
-  pos[0] += dx;
-  pos[1] += dy;
-  target.dirty();
-}
-/**
- * For geo and graph.
- *
- * @param {Object} controllerHost
- * @param {module:zrender/Element} controllerHost.target
- * @param {number} controllerHost.zoom
- * @param {number} controllerHost.zoomLimit like: {min: 1, max: 2}
- */
-
-function updateViewOnZoom(controllerHost, zoomDelta, zoomX, zoomY) {
-  var target = controllerHost.target;
-  var zoomLimit = controllerHost.zoomLimit;
-  var pos = target.position;
-  var scale = target.scale;
-  var newZoom = controllerHost.zoom = controllerHost.zoom || 1;
-  newZoom *= zoomDelta;
-
-  if (zoomLimit) {
-    var zoomMin = zoomLimit.min || 0;
-    var zoomMax = zoomLimit.max || Infinity;
-    newZoom = Math.max(Math.min(zoomMax, newZoom), zoomMin);
-  }
-
-  var zoomScale = newZoom / controllerHost.zoom;
-  controllerHost.zoom = newZoom; // Keep the mouse center when scaling
-
-  pos[0] -= (zoomX - pos[0]) * (zoomScale - 1);
-  pos[1] -= (zoomY - pos[1]) * (zoomScale - 1);
-  scale[0] *= zoomScale;
-  scale[1] *= zoomScale;
-  target.dirty();
-}
-
-/*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
-var IRRELEVANT_EXCLUDES = {
-  'axisPointer': 1,
-  'tooltip': 1,
-  'brush': 1
-};
-/**
- * Avoid that: mouse click on a elements that is over geo or graph,
- * but roam is triggered.
- */
-
-function onIrrelevantElement(e, api, targetCoordSysModel) {
-  var model = api.getComponentByElement(e.topTarget); // If model is axisModel, it works only if it is injected with coordinateSystem.
-
-  var coordSys = model && model.coordinateSystem;
-  return model && model !== targetCoordSysModel && !IRRELEVANT_EXCLUDES[model.mainType] && coordSys && coordSys.model !== targetCoordSysModel;
-}
-
-/*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
 function getNodeGlobalScale(seriesModel) {
   var coordSys = seriesModel.coordinateSystem;
 
@@ -45031,71 +47278,6 @@ extendChartView({
     this._lineDraw && this._lineDraw.remove();
   }
 });
-
-/*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
-
-/**
- * @param {module:echarts/coord/View} view
- * @param {Object} payload
- * @param {Object} [zoomLimit]
- */
-function updateCenterAndZoom(view, payload, zoomLimit) {
-  var previousZoom = view.getZoom();
-  var center = view.getCenter();
-  var zoom = payload.zoom;
-  var point = view.dataToPoint(center);
-
-  if (payload.dx != null && payload.dy != null) {
-    point[0] -= payload.dx;
-    point[1] -= payload.dy;
-    var center = view.pointToData(point);
-    view.setCenter(center);
-  }
-
-  if (zoom != null) {
-    if (zoomLimit) {
-      var zoomMin = zoomLimit.min || 0;
-      var zoomMax = zoomLimit.max || Infinity;
-      zoom = Math.max(Math.min(previousZoom * zoom, zoomMax), zoomMin) / previousZoom;
-    } // Zoom on given point(originX, originY)
-
-
-    view.scale[0] *= zoom;
-    view.scale[1] *= zoom;
-    var position = view.position;
-    var fixX = (payload.originX - position[0]) * (zoom - 1);
-    var fixY = (payload.originY - position[1]) * (zoom - 1);
-    position[0] -= fixX;
-    position[1] -= fixY;
-    view.updateTransform(); // Get the new center
-
-    var center = view.pointToData(point);
-    view.setCenter(center);
-    view.setZoom(zoom * previousZoom);
-  }
-
-  return {
-    center: view.getCenter(),
-    zoom: view.getZoom()
-  };
-}
 
 /*
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -45964,299 +48146,8 @@ var forceLayout = function (ecModel) {
 * specific language governing permissions and limitations
 * under the License.
 */
-
-/**
- * Simple view coordinate system
- * Mapping given x, y to transformd view x, y
- */
-var v2ApplyTransform$1 = applyTransform; // Dummy transform node
-
-function TransformDummy() {
-  Transformable.call(this);
-}
-
-mixin(TransformDummy, Transformable);
-
-function View(name) {
-  /**
-   * @type {string}
-   */
-  this.name = name;
-  /**
-   * @type {Object}
-   */
-
-  this.zoomLimit;
-  Transformable.call(this);
-  this._roamTransformable = new TransformDummy();
-  this._rawTransformable = new TransformDummy();
-  this._center;
-  this._zoom;
-}
-
-View.prototype = {
-  constructor: View,
-  type: 'view',
-
-  /**
-   * @param {Array.<string>}
-   * @readOnly
-   */
-  dimensions: ['x', 'y'],
-
-  /**
-   * Set bounding rect
-   * @param {number} x
-   * @param {number} y
-   * @param {number} width
-   * @param {number} height
-   */
-  // PENDING to getRect
-  setBoundingRect: function (x, y, width, height) {
-    this._rect = new BoundingRect(x, y, width, height);
-    return this._rect;
-  },
-
-  /**
-   * @return {module:zrender/core/BoundingRect}
-   */
-  // PENDING to getRect
-  getBoundingRect: function () {
-    return this._rect;
-  },
-
-  /**
-   * @param {number} x
-   * @param {number} y
-   * @param {number} width
-   * @param {number} height
-   */
-  setViewRect: function (x, y, width, height) {
-    this.transformTo(x, y, width, height);
-    this._viewRect = new BoundingRect(x, y, width, height);
-  },
-
-  /**
-   * Transformed to particular position and size
-   * @param {number} x
-   * @param {number} y
-   * @param {number} width
-   * @param {number} height
-   */
-  transformTo: function (x, y, width, height) {
-    var rect = this.getBoundingRect();
-    var rawTransform = this._rawTransformable;
-    rawTransform.transform = rect.calculateTransform(new BoundingRect(x, y, width, height));
-    rawTransform.decomposeTransform();
-
-    this._updateTransform();
-  },
-
-  /**
-   * Set center of view
-   * @param {Array.<number>} [centerCoord]
-   */
-  setCenter: function (centerCoord) {
-    if (!centerCoord) {
-      return;
-    }
-
-    this._center = centerCoord;
-
-    this._updateCenterAndZoom();
-  },
-
-  /**
-   * @param {number} zoom
-   */
-  setZoom: function (zoom) {
-    zoom = zoom || 1;
-    var zoomLimit = this.zoomLimit;
-
-    if (zoomLimit) {
-      if (zoomLimit.max != null) {
-        zoom = Math.min(zoomLimit.max, zoom);
-      }
-
-      if (zoomLimit.min != null) {
-        zoom = Math.max(zoomLimit.min, zoom);
-      }
-    }
-
-    this._zoom = zoom;
-
-    this._updateCenterAndZoom();
-  },
-
-  /**
-   * Get default center without roam
-   */
-  getDefaultCenter: function () {
-    // Rect before any transform
-    var rawRect = this.getBoundingRect();
-    var cx = rawRect.x + rawRect.width / 2;
-    var cy = rawRect.y + rawRect.height / 2;
-    return [cx, cy];
-  },
-  getCenter: function () {
-    return this._center || this.getDefaultCenter();
-  },
-  getZoom: function () {
-    return this._zoom || 1;
-  },
-
-  /**
-   * @return {Array.<number}
-   */
-  getRoamTransform: function () {
-    return this._roamTransformable.getLocalTransform();
-  },
-
-  /**
-   * Remove roam
-   */
-  _updateCenterAndZoom: function () {
-    // Must update after view transform updated
-    var rawTransformMatrix = this._rawTransformable.getLocalTransform();
-
-    var roamTransform = this._roamTransformable;
-    var defaultCenter = this.getDefaultCenter();
-    var center = this.getCenter();
-    var zoom = this.getZoom();
-    center = applyTransform([], center, rawTransformMatrix);
-    defaultCenter = applyTransform([], defaultCenter, rawTransformMatrix);
-    roamTransform.origin = center;
-    roamTransform.position = [defaultCenter[0] - center[0], defaultCenter[1] - center[1]];
-    roamTransform.scale = [zoom, zoom];
-
-    this._updateTransform();
-  },
-
-  /**
-   * Update transform from roam and mapLocation
-   * @private
-   */
-  _updateTransform: function () {
-    var roamTransformable = this._roamTransformable;
-    var rawTransformable = this._rawTransformable;
-    rawTransformable.parent = roamTransformable;
-    roamTransformable.updateTransform();
-    rawTransformable.updateTransform();
-    copy$1(this.transform || (this.transform = []), rawTransformable.transform || create$1());
-    this._rawTransform = rawTransformable.getLocalTransform();
-    this.invTransform = this.invTransform || [];
-    invert(this.invTransform, this.transform);
-    this.decomposeTransform();
-  },
-  getTransformInfo: function () {
-    var roamTransform = this._roamTransformable.transform;
-    var rawTransformable = this._rawTransformable;
-    return {
-      roamTransform: roamTransform ? slice(roamTransform) : create$1(),
-      rawScale: slice(rawTransformable.scale),
-      rawPosition: slice(rawTransformable.position)
-    };
-  },
-
-  /**
-   * @return {module:zrender/core/BoundingRect}
-   */
-  getViewRect: function () {
-    return this._viewRect;
-  },
-
-  /**
-   * Get view rect after roam transform
-   * @return {module:zrender/core/BoundingRect}
-   */
-  getViewRectAfterRoam: function () {
-    var rect = this.getBoundingRect().clone();
-    rect.applyTransform(this.transform);
-    return rect;
-  },
-
-  /**
-   * Convert a single (lon, lat) data item to (x, y) point.
-   * @param {Array.<number>} data
-   * @param {boolean} noRoam
-   * @param {Array.<number>} [out]
-   * @return {Array.<number>}
-   */
-  dataToPoint: function (data, noRoam, out) {
-    var transform = noRoam ? this._rawTransform : this.transform;
-    out = out || [];
-    return transform ? v2ApplyTransform$1(out, data, transform) : copy(out, data);
-  },
-
-  /**
-   * Convert a (x, y) point to (lon, lat) data
-   * @param {Array.<number>} point
-   * @return {Array.<number>}
-   */
-  pointToData: function (point) {
-    var invTransform = this.invTransform;
-    return invTransform ? v2ApplyTransform$1([], point, invTransform) : [point[0], point[1]];
-  },
-
-  /**
-   * @implements
-   * see {module:echarts/CoodinateSystem}
-   */
-  convertToPixel: curry(doConvert, 'dataToPoint'),
-
-  /**
-   * @implements
-   * see {module:echarts/CoodinateSystem}
-   */
-  convertFromPixel: curry(doConvert, 'pointToData'),
-
-  /**
-   * @implements
-   * see {module:echarts/CoodinateSystem}
-   */
-  containPoint: function (point) {
-    return this.getViewRectAfterRoam().contain(point[0], point[1]);
-  }
-  /**
-   * @return {number}
-   */
-  // getScalarScale: function () {
-  //     // Use determinant square root of transform to mutiply scalar
-  //     var m = this.transform;
-  //     var det = Math.sqrt(Math.abs(m[0] * m[3] - m[2] * m[1]));
-  //     return det;
-  // }
-
-};
-mixin(View, Transformable);
-
-function doConvert(methodName, ecModel, finder, value) {
-  var seriesModel = finder.seriesModel;
-  var coordSys = seriesModel ? seriesModel.coordinateSystem : null; // e.g., graph.
-
-  return coordSys === this ? coordSys[methodName](value) : null;
-}
-
-/*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
 // FIXME Where to create the simple view coordinate system
-function getViewRect$1(seriesModel, api, aspect) {
+function getViewRect$2(seriesModel, api, aspect) {
   var option = seriesModel.getBoxLayoutParams();
   option.aspect = aspect;
   return getLayoutRect(option, {
@@ -46292,7 +48183,7 @@ var createView = function (ecModel, api) {
 
       var aspect = (max[0] - min[0]) / (max[1] - min[1]); // FIXME If get view rect after data processed?
 
-      var viewRect = getViewRect$1(seriesModel, api, aspect); // Position may be NaN, use view rect instead
+      var viewRect = getViewRect$2(seriesModel, api, aspect); // Position may be NaN, use view rect instead
 
       if (isNaN(aspect)) {
         min = [viewRect.x, viewRect.y];

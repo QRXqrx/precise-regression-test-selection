@@ -2,7 +2,6 @@ package edu.pa.web.prts.service;
 
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.ipa.callgraph.AnalysisScope;
-import com.ibm.wala.ipa.callgraph.CGNode;
 import com.ibm.wala.ipa.callgraph.Entrypoint;
 import com.ibm.wala.ipa.callgraph.cha.CHACallGraph;
 import com.ibm.wala.ipa.callgraph.impl.AllApplicationEntrypoints;
@@ -24,7 +23,6 @@ import org.springframework.test.context.junit4.SpringRunner;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -112,6 +110,7 @@ class MethodOperationTest {
     }
 
 
+    @SuppressWarnings("all")
     private CHACallGraph buildCHACG(String targetPath, String exPath, boolean appOnly) throws IOException, ClassHierarchyException, CancelException {
         AnalysisScope scope = WalaUtil.getDynamicScope(targetPath, exPath, this.getClass().getClassLoader());
         ClassHierarchy cha = ClassHierarchyFactory.makeWithRoot(scope);

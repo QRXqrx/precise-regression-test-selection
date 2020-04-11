@@ -1,7 +1,5 @@
 package edu.pa.web.prts.service;
 
-import edu.pa.web.prts.vo.VO;
-
 import java.util.List;
 import java.util.Map;
 
@@ -54,9 +52,4 @@ public interface DBOperationService<T> {
      */
     int deleteRecords(List<T> records);
 
-    /**
-     * @param objs 组合并生成VO的材料
-     * @return 一个组合完成的VO对象
-     */
-    VO generateVO(Object ... objs);
 }

@@ -5,9 +5,7 @@ import edu.pa.web.prts.bean.Method;
 import edu.pa.web.prts.bean.key.MethodKey;
 import edu.pa.web.prts.jpa.InvocationRepository;
 import edu.pa.web.prts.jpa.MethodRepository;
-import edu.pa.web.prts.jpa.VersionInfoRepository;
 import edu.pa.web.prts.service.DBOperationService;
-import edu.pa.web.prts.vo.VO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -157,8 +155,4 @@ public class MethodOperation implements DBOperationService<Method> {
         return cnt;
     }
 
-    @Override
-    public VO generateVO(Object... objs) {
-        return null;
-    }
 }

@@ -3,7 +3,7 @@ package edu.pa.web.prts.service.impl;
 import edu.pa.web.prts.bean.VersionInfo;
 import edu.pa.web.prts.jpa.VersionInfoRepository;
 import edu.pa.web.prts.service.DBOperationService;
-import edu.pa.web.prts.vo.VO;
+import edu.pa.web.prts.util.DBUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -29,6 +29,14 @@ public class VersionInfoOperation implements DBOperationService<VersionInfo> {
     @Autowired
     public VersionInfoOperation(VersionInfoRepository repository) {
         this.versionInfoRepository = repository;
+    }
+
+    /**
+     * 包装VersionInfoRepository提供的findAll方法
+     * @return List形式的全部VersionInfo
+     */
+    public List<VersionInfo> findAll() {
+        return DBUtil.convertIterableToList(versionInfoRepository.findAll());
     }
 
     /**
@@ -157,8 +165,4 @@ public class VersionInfoOperation implements DBOperationService<VersionInfo> {
     }
 
 
-    @Override
-    public VO generateVO(Object... objs) {
-        return null;
-    }
 }
