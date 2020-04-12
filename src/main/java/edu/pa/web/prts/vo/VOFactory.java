@@ -1,16 +1,20 @@
 package edu.pa.web.prts.vo;
 
+import edu.pa.web.prts.bean.Invocation;
 import edu.pa.web.prts.bean.Method;
 import edu.pa.web.prts.bean.VersionInfo;
 import edu.pa.web.prts.service.impl.InvocationOperation;
 import edu.pa.web.prts.service.impl.MethodOperation;
 import edu.pa.web.prts.service.impl.VersionInfoOperation;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -21,6 +25,7 @@ import java.util.stream.Collectors;
  * @date 2020-04-11
  */
 
+@Slf4j
 @Service
 public class VOFactory {
 
@@ -35,6 +40,55 @@ public class VOFactory {
         this.versionInfoOperation = versionInfoOperation;
         this.invocationOperation = invocationOperation;
         this.methodOperation = methodOperation;
+    }
+
+
+    /**
+     * 生成CallRelationVo，用于在页面上展示树状调用关系图
+     * @param groupID 组别
+     * @param fullName 方法全名
+     * @return CallRelation 调用关系视图
+     */
+    public CallRelationVo makeCallRelation(String groupID, String fullName) {
+        // 找到根节点
+        Method rootMethod = methodOperation.findByID(groupID, fullName);
+
+        if(rootMethod == null) { // 如果这个方法不存在
+            return null;
+        }
+
+        CallRelationVo callRelation = new CallRelationVo();
+        callRelation.setName(rootMethod.getSimpleName());
+        callRelation.setValue(rootMethod.getFullName());
+
+        if(rootMethod.getIsChanged()) {
+            Map<String, String> itemStyle = new HashMap<>();
+            itemStyle.put("borderColor", "#973c3f");
+            Map<String, String> lineStyle = new HashMap<>();
+            lineStyle.put("color", "#973c3f");
+
+            callRelation.setItemStyle(itemStyle); // 设置成红色，表示这个节点与变更相关
+            callRelation.setLineStyle(lineStyle); // 设置成红色，表示这条边与变更相关
+        }
+
+        // 找到所有以rootMethod方法为根的调用关系
+        List<Invocation> invocations = invocationOperation.findAllByMethod(rootMethod);
+        if(invocations.isEmpty()) { // 没有子节点
+            return callRelation;
+        }
+        // 有子节点
+        List<CallRelationVo> childrenNodes = new ArrayList<>();
+        for(Invocation invocation : invocations) {
+            CallRelationVo childrenVo = makeCallRelation(invocation.getGroupID(), invocation.getCallee());
+            if(childrenVo == null) {
+                continue;
+            }
+            childrenNodes.add(childrenVo);
+        }
+
+        callRelation.setChildren(childrenNodes);
+        return callRelation;
+
     }
 
 

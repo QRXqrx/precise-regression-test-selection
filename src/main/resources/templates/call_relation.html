@@ -1,0 +1,134 @@
+<!DOCTYPE html >
+<html lang="zh_CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>调用图</title>
+    <style>
+        tr {
+            text-align: center;
+        }
+    </style>
+
+
+    <!--for debug-->
+    <!--<script type="text/javascript" src="../static/js/echarts.js"></script>-->
+    <script type="text/javascript" src="../../js/echarts.js"></script>
+    <script type="text/javascript" src="../../js/jquery-3.4.1.js"></script>
+</head>
+<body>
+<div id="div-center" align="center">
+
+
+    <div id="callRelation" style="height: 1000px; width: 100%;"></div>
+
+    <script type="text/javascript" th:inline="javascript">
+        var dom = document.getElementById("callRelation");
+        var myChart = echarts.init(dom);
+        myChart.showLoading();
+
+        var data = {
+            "name": "flare",
+            "children": [
+                {
+                    "name": "flex",
+                    "children": [
+                        {"name": "FlareVis", "value": 4116}
+                    ]
+                },
+                {
+                    "name": "scale",
+                    "children": [
+                        {"name": "IScaleMap", "value": 2105},
+                        {"name": "LinearScale", "value": 1316},
+                        {"name": "LogScale", "value": 3151},
+                        {"name": "OrdinalScale", "value": 3770},
+                        {"name": "QuantileScale", "value": 2435},
+                        {"name": "QuantitativeScale", "value": 4839},
+                        {"name": "RootScale", "value": 1756},
+                        {"name": "Scale", "value": 4268},
+                        {"name": "ScaleType", "value": 1821},
+                        {"name": "TimeScale", "value": 5833}
+                    ]
+                },
+                {
+                    "name": "display",
+                    "children": [
+                        {"name": "DirtySprite", "value": 8833}
+                    ]
+                }
+            ]
+        };
+
+        var callRelation = [[${callRelation}]];
+        console.log(callRelation);
+        if(callRelation != null) {
+            data = callRelation;
+        }
+
+        myChart.hideLoading();
+
+        myChart.setOption(option = {
+            tooltip: {
+                trigger: 'item',
+                triggerOn: 'mousemove'
+            },
+            legend: {
+                top: '2%',
+                left: '3%',
+                data: [
+                    {
+                        name: 'call-relation',
+                        icon: 'circle'
+                    }
+                ],
+                borderColor: '#426ab3'
+            },
+            series:[
+                {
+                    type: 'tree',
+                    name: 'call-relation',
+                    data: [data],
+
+                    top: 20, // 与上边的距离
+
+                    itemStyle:{
+                        borderColor:"#426ab3"
+                    },
+
+                    lineStyle:{
+                        color: "#2c2c2c"
+                    },
+
+                    symbolSize: 10,
+                    label: {
+                        position: 'top',
+                        verticalAlign: 'middle',
+                        align: 'center',
+                        fontSize: 20
+                    },
+
+                    leaves: { // 设置叶子节点的标签格式
+                        label: {
+                            position: 'right',
+                            verticalAlign: 'middle',
+                            align: 'left',
+                            fontSize: 20
+                        }
+                    },
+
+                    // 动画效果
+                    expandAndCollapse: true,
+                    animationDuration: 550,
+                    animationDurationUpdate: 750
+                }
+            ]
+        });
+
+    </script>
+
+</div>
+</body>
+
+
+
+</html>

@@ -86,14 +86,7 @@ class InvocationOperationTest {
 
     private String exPath = "C:/Users/QRX/IdeaProjects/precise-regression-test-selection/src/main/resources/Java60RegressionExclusions.txt";
 
-    private String signatureToFullName(String methodSignature) {
-        if(methodSignature.length() < 300) {
-            return methodSignature;
-        }
-        return methodSignature.substring(0, 300);
-    }
-
-    private boolean isArtifact(IMethod method, String groupID) {
+    private boolean isArtifact(IMethod method, String groupID) { // 一定要按照原生signature来判定
         return method.getSignature().contains(groupID);
     }
 
@@ -105,12 +98,12 @@ class InvocationOperationTest {
         List<Invocation> invocations = new ArrayList<>();
         appCHACG.forEach((node) -> {
             IMethod caller = node.getMethod();
-            String callerName = signatureToFullName(caller.getSignature());
+            String callerName = WalaUtil.signatureToFullName(caller.getSignature());
             if(isArtifact(caller, groupID)) {
                 Iterator<CGNode> succNodes = fullCHACG.getSuccNodes(node);
                 while(succNodes.hasNext()) {
                     IMethod callee = succNodes.next().getMethod();
-                    String calleeName = signatureToFullName(callee.getSignature());
+                    String calleeName = WalaUtil.signatureToFullName(callee.getSignature());
                     // 默认情况
                     invocations.add(new Invocation(callerName, calleeName, groupID, false, true, versionInfo.getVersion()));
                 }

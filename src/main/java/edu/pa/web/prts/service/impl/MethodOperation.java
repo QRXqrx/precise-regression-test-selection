@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -29,6 +30,18 @@ public class MethodOperation implements DBOperationService<Method> {
 
     private MethodRepository methodRepository;
     private InvocationRepository invocationRepository;
+
+    public Method findByID(String groupID, String fullName) {
+        return findByID(new MethodKey(groupID, fullName));
+    }
+
+    public Method findByID(MethodKey id) {
+        Optional<Method> op = methodRepository.findById(id);
+        if(op.isPresent()) {
+            return op.get();
+        }
+        return null; // 表示未找到
+    }
 
     /**
      * 查询某个项目中所有的组件节点

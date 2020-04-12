@@ -2,8 +2,10 @@ package edu.pa.web.prts.controller;
 
 import com.sun.org.apache.xpath.internal.operations.Mod;
 import edu.pa.web.prts.bean.Method;
+import edu.pa.web.prts.vo.CallRelationVo;
 import edu.pa.web.prts.vo.ProjectVersionVo;
 import edu.pa.web.prts.vo.VOFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -22,6 +24,7 @@ import java.util.List;
  * @date 2020-04-11
  */
 
+@Slf4j
 @Controller
 public class PageController {
 
@@ -32,19 +35,26 @@ public class PageController {
         this.voFactory = voFactory;
     }
 
-//    @ResponseBody
-//    @GetMapping("analysis_result/{group_id}/{full_name}")
-//    public  showCallRelation(
-//
-//    ) {
-//        return
-//    }
+
+    @GetMapping("/call_relation/{group_id}/{full_name}")
+    public  String showCallRelation(
+            @PathVariable("group_id") String groupID,
+            @PathVariable("full_name") String fullName,
+            Model model
+    ) {
+        log.debug("groupID:" + groupID);
+        log.debug("fullName:" + fullName);
+        CallRelationVo callRelationVo = voFactory.makeCallRelation(groupID, fullName);
+        model.addAttribute("callRelation", callRelationVo);
+        return "call_relation";
+    }
 
     @GetMapping("/analysis_result/{group_id}")
     public String showArtifacts(
             @PathVariable("group_id") String groupID,
             Model model
     ) {
+        log.debug("groupID:" + groupID);
         List<Method> artifactList = voFactory.makeArtifactsList(groupID);
         model.addAttribute("groupID", groupID);
         model.addAttribute("artifactList", artifactList);

@@ -23,6 +23,20 @@ public class WalaUtil {
 
     private WalaUtil(){}
 
+
+    public static String signaturetoFullName(IMethod method) {
+        return signatureToFullName(method.getSignature());
+    }
+
+    public static String signatureToFullName(String methodSignature) {
+        methodSignature = methodSignature.replace("/", ".");
+        methodSignature = methodSignature.replace(";", "|");
+        if(methodSignature.length() < 300) {
+            return methodSignature;
+        }
+        return methodSignature.substring(0, 300);
+    }
+
     public static boolean isArtifact(IMethod method, String groupID) {
         return method.getSignature().contains(groupID);
     }

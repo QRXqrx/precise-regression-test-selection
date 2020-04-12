@@ -1,6 +1,7 @@
 package edu.pa.web.prts.service.impl;
 
 import edu.pa.web.prts.bean.Invocation;
+import edu.pa.web.prts.bean.Method;
 import edu.pa.web.prts.bean.key.InvocationKey;
 import edu.pa.web.prts.jpa.InvocationRepository;
 import edu.pa.web.prts.service.DBOperationService;
@@ -31,6 +32,10 @@ public class InvocationOperation implements DBOperationService<Invocation> {
     public InvocationOperation(InvocationRepository invocationRepository, VersionInfoOperation versionInfoOperation) {
         this.invocationRepository = invocationRepository;
         this.versionInfoOperation = versionInfoOperation;
+    }
+
+    public List<Invocation> findAllByMethod(Method method) {
+        return invocationRepository.findAllByCallerAndGroupID(method.getFullName(), method.getGroupID());
     }
 
     /**

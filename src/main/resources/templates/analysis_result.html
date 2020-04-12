@@ -36,7 +36,7 @@
         <td th:text="${artifact.getIsChanged()==true ? '是' : '否' }"></td>
         <td th:text="${artifact.getIsTest()==true ? '是' : '否' }"></td>
         <td th:text="${artifact.getVersion()}"></td>
-        <td><a th:href="'/' + ${artifact.getFullName()}">查看调用图</a></td>
+        <td><a th:href="'/call_relation/' + ${artifact.getGroupID()} + '/' + ${artifact.getFullName()}">查看调用图</a></td>
     </tr>
 
 </table>
@@ -46,14 +46,5 @@
 </div>
 </body>
 
-
-<script type="text/javascript">
-    window.onload = function() {
-        document.getElementById("upload_btn").onclick = function() {
-            console.log("跳转到上传页面");
-            window.location.href="/upload"
-        }
-    }
-</script>
 
 </html>

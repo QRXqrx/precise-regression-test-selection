@@ -81,12 +81,6 @@ class MethodOperationTest {
         return targetPathBuidler.toString();
     }
 
-    private String signatureToFullName(String methodSignature) {
-        if(methodSignature.length() < 300) {
-            return methodSignature;
-        }
-        return methodSignature.substring(0, 300);
-    }
 
     private List<Method> generateMethods(VersionInfo versionInfo, String exPath) throws ClassHierarchyException, IOException, CancelException {
         String targetPath = targetPath(versionInfo.getRootFolder());
@@ -96,7 +90,7 @@ class MethodOperationTest {
         fullCHACG.forEach((node) -> {
             IMethod walaMethod = node.getMethod();
 
-            String fullName = signatureToFullName(walaMethod.getSignature());
+            String fullName = WalaUtil.signatureToFullName(walaMethod.getSignature());
             // is_changed默认一开始是false
             boolean isArtifact = WalaUtil.isArtifact(walaMethod, groupID);
             boolean isTest = WalaUtil.isTestMethodNode(node);
