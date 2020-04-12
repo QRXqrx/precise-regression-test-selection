@@ -1,6 +1,7 @@
 package edu.pa.web.prts.controller;
 
-import com.sun.org.apache.xpath.internal.operations.Mod;
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
 import edu.pa.web.prts.bean.Method;
 import edu.pa.web.prts.vo.CallRelationVo;
 import edu.pa.web.prts.vo.ProjectVersionVo;
@@ -9,10 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -49,16 +47,35 @@ public class PageController {
         return "call_relation";
     }
 
+
     @GetMapping("/analysis_result/{group_id}")
     public String showArtifacts(
             @PathVariable("group_id") String groupID,
+            @RequestParam(defaultValue = "1") int pageNum,
             Model model
     ) {
-        log.debug("groupID:" + groupID);
-        List<Method> artifactList = voFactory.makeArtifactsList(groupID);
+        int pageSize = 10;
+        if(pageNum <= 0) {
+            pageNum = 1;
+        }
+        // 使用PageHelper获取当前页面展示的起始记录条数
+        Page<Object> pageCounter = PageHelper.startPage(pageNum, pageSize); // 当成计数器用看看行不行。。。
+        int start = pageCounter.getStartRow();
+        int end = pageCounter.getEndRow();
+        List<Method> currentArtifacts = voFactory.makePaginationArtifactListVo(groupID, start, end);
+
         model.addAttribute("groupID", groupID);
-        model.addAttribute("artifactList", artifactList);
+        model.addAttribute("currentArtifacts", currentArtifacts);
+        model.addAttribute("pageNum", pageNum);
+        log.debug("groupID:" + groupID);
+        log.debug("start:" + start);
+        log.debug("end:" + end);
         return "analysis_result";
+    }
+
+    @GetMapping("/analysis_result")
+    public String redirectToIndex() {
+        return "redirect:/";
     }
 
     @GetMapping("/")

@@ -3,38 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <title>精准测试系统</title>
-    <style>
-        tr {
-            text-align: center;
-        }
-    </style>
+    <!--用于本地调试-->
+    <link rel="stylesheet" type="text/css" href="../static/bootstrap-3.3.7/css/bootstrap.css">
+    <script type="text/javascript" src="../static/js/jquery-3.4.1.js"></script>
+    <script type="text/javascript" src="../static/bootstrap-3.3.7/js/bootstrap.js"></script>
+    <!--用于线上-->
+    <link rel="stylesheet" type="text/css" th:href="@{/bootstrap-3.3.7/css/bootstrap.css}">
+    <script type="text/javascript" th:src="@{/bootstrap-3.3.7/js/bootstrap.js}"></script>
+    <script type="text/javascript" th:src="@{/js/jquery-3.4.1.js}"></script>
+
 </head>
 <body>
 <div id="div-center" align="center">
 
 <h1>精准测试系统</h1>
-<table width="1000px" cellspacing="0">
+
+<table class="table">
     <tr>
         <th>项目组别</th>
         <th>当前版本</th>
         <th>上一个版本</th>
         <th></th>
     </tr>
-    <tr>
-        <td>项目名示例</td>
-        <td>2.0.0</td>
-        <td>1.0.0</td>
-        <td><a href="">查看静态分析结果</a></td> <!--或者用超链接-->
-    </tr>
     <tr th:each="projectVersionVo:${projectVersionVoList}">
         <td th:text="${projectVersionVo.getGroupID()}"></td>
         <td th:text="${projectVersionVo.getPresentVersion()}"></td>
         <td th:text="${projectVersionVo.getPreviousVersion()}"></td>
-        <td ><a th:href="'/analysis_result/'+ ${projectVersionVo.getGroupID()}">查看静态分析结果</a></td>
+        <td ><a class="btn btn-primary btn-info" th:href="'/analysis_result/'+ ${projectVersionVo.getGroupID()}">查看静态分析结果</a></td>
     </tr>
+    <!--<tr>-->
+        <!--<td>项目名示例</td>-->
+        <!--<td>2.0.0</td>-->
+        <!--<td>1.0.0</td>-->
+        <!--<td><a class="btn btn-primary btn-info" href="">查看静态分析结果</a></td> &lt;!&ndash;或者用超链接&ndash;&gt;-->
+    <!--</tr>-->
 </table>
 
-<button id="upload_btn">上传新项目</button>
+    <a class="btn btn-primary" href="/upload">上传新项目</a>
 </div>
 </body>
 

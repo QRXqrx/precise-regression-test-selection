@@ -63,9 +63,9 @@ public class VOFactory {
 
         if(rootMethod.getIsChanged()) {
             Map<String, String> itemStyle = new HashMap<>();
-            itemStyle.put("borderColor", "#973c3f");
+            itemStyle.put("borderColor", "#d71345");
             Map<String, String> lineStyle = new HashMap<>();
-            lineStyle.put("color", "#973c3f");
+            lineStyle.put("color", "#d71345");
 
             callRelation.setItemStyle(itemStyle); // 设置成红色，表示这个节点与变更相关
             callRelation.setLineStyle(lineStyle); // 设置成红色，表示这条边与变更相关
@@ -89,6 +89,24 @@ public class VOFactory {
         callRelation.setChildren(childrenNodes);
         return callRelation;
 
+    }
+
+
+    public List<Method> makePaginationArtifactListVo(String groupID, int start, int end) {
+        List<Method> allArtifacts = makeArtifactsList(groupID);
+        List<Method> subArtifactList = new ArrayList<>();
+        // 起始不能小于0，结束不能超过allArtifacts的长度
+        if(start < 0 ) {
+            start = 0;
+        }
+        if(end > allArtifacts.size()) {
+            end = allArtifacts.size();
+        }
+
+        for(int i = start; i < end ; i++) {
+            subArtifactList.add(allArtifacts.get(i));
+        }
+        return subArtifactList;
     }
 
 

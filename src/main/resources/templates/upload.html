@@ -11,7 +11,14 @@
             text-align: right;
         }
     </style>
-
+    <!--用于本地调试-->
+    <link rel="stylesheet" type="text/css" href="../static/bootstrap-3.3.7/css/bootstrap.css">
+    <script type="text/javascript" src="../static/js/jquery-3.4.1.js"></script>
+    <script type="text/javascript" src="../static/bootstrap-3.3.7/js/bootstrap.js"></script>
+    <!--用于线上-->
+    <link rel="stylesheet" type="text/css" th:href="@{/bootstrap-3.3.7/css/bootstrap.css}">
+    <script type="text/javascript" th:src="@{/bootstrap-3.3.7/js/bootstrap.js}"></script>
+    <script type="text/javascript" th:src="@{/js/jquery-3.4.1.js}"></script>
 </head>
 <body>
 
@@ -21,7 +28,7 @@
 <h1>项目上传页面</h1>
 
     <form method="post" action="/uploadFolder" enctype="multipart/form-data">
-        <table width="400px">
+        <table class="table">
             <tr>
                 <td class="td-left">项目名称</td>
                 <td class="td-right"><input type="text" name="project-name" placeholder="项目名称.."/></td>

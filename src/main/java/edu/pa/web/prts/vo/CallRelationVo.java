@@ -29,8 +29,8 @@ public class CallRelationVo {
 
     public CallRelationVo() {
         itemStyle = new HashMap<>();// 默认为蓝色
-        itemStyle.put("borderColor", "#426ab3");
+        itemStyle.put("borderColor", "#33a3dc");
         lineStyle = new HashMap<>();// 默认为蓝色
-        lineStyle.put("color", "#426ab3");
+        lineStyle.put("color", "#7bbfea");
     }
 }
