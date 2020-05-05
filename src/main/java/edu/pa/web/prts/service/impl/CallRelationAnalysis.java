@@ -188,8 +188,8 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
     public void analysis() {
         this.fullCHACG = buildCHACG();
         this.appCHACG = buildCHACG(true);
-        this.invocations = getInvocations();
-        this.methods = getMethods();
+        this.invocations = generateInvocations();
+        this.methods = generateMethods();
     }
 
     public void saveResult() {
