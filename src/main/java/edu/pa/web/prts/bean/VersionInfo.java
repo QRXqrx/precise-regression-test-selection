@@ -26,14 +26,10 @@ import java.util.Date;
 @Table(name = "version_info", schema = "prts")
 public class VersionInfo {
 
-//    @Id
-//    @Column(name = "upload_date")
-//    private Timestamp uploadDate;
-////    private Date uploadDate; // 普通的date可以存入数据库，但是不好用，弃用了
     @Id
     @Column(name = "upload_time")
     private Long uploadTime;
-//    private Date uploadDate; // 普通的date可以存入数据库，但是不好用，弃用了
+
 
     @Column(name = "version")
     private String version;

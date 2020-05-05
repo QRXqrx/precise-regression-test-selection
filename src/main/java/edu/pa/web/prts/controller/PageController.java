@@ -54,6 +54,7 @@ public class PageController {
             @RequestParam(defaultValue = "1") int pageNum,
             Model model
     ) {
+        // 简易分页器
         int pageSize = 10;
         if(pageNum <= 0) {
             pageNum = 1;

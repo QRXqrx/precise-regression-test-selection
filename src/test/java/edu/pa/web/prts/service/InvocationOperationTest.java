@@ -114,7 +114,7 @@ class InvocationOperationTest {
     }
 
     @Test
-    void testSaveVersion2() throws ClassHierarchyException, IOException, CancelException {
+    void testSaveInvocations2() throws ClassHierarchyException, IOException, CancelException {
         VersionInfo versionInfo2 = new VersionInfo(System.currentTimeMillis(), version2, folder2, groupID);
         versionInfoOperation.updateTable(versionInfo2);
         Assert.assertEquals(2, versionInfoRepository.findAllByGroupID(groupID).size());
@@ -132,7 +132,7 @@ class InvocationOperationTest {
 
 
     @Test
-    void testSaveVersion1() throws ClassHierarchyException, IOException, CancelException {
+    void testSaveInvocations1() throws ClassHierarchyException, IOException, CancelException {
         VersionInfo versionInfo1 = new VersionInfo(System.currentTimeMillis(), version1, folder1, groupID);
         versionInfoOperation.updateTable(versionInfo1);
         Assert.assertEquals(1, versionInfoRepository.findAllByGroupID(groupID).size());

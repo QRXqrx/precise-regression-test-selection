@@ -42,6 +42,12 @@ public class WalaUtil {
     }
 
 
+    /**
+     * Whether a method contains @Test annotation
+     *
+     * @param node a CGNode represents a method
+     * @return judgement result.
+     */
     public static boolean isTestMethodNode(CGNode node) {
         IMethod method = node.getMethod();
         Collection<Annotation> annotations = method.getAnnotations();

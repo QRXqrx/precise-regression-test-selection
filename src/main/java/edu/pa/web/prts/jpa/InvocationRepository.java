@@ -4,7 +4,6 @@ import edu.pa.web.prts.bean.Invocation;
 import edu.pa.web.prts.bean.key.InvocationKey;
 import org.springframework.data.repository.CrudRepository;
 
-import javax.transaction.Transactional;
 import java.util.List;
 
 /**

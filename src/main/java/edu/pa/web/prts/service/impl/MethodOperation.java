@@ -37,10 +37,11 @@ public class MethodOperation implements DBOperationService<Method> {
 
     public Method findByID(MethodKey id) {
         Optional<Method> op = methodRepository.findById(id);
-        if(op.isPresent()) {
-            return op.get();
-        }
-        return null; // 表示未找到
+        return op.orElse(null); // 与下面几行等效
+//        if(op.isPresent()) {
+//            return op.get();
+//        }
+//        return null; // 表示未找到
     }
 
     /**
