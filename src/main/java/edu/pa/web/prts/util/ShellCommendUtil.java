@@ -61,12 +61,13 @@ public class ShellCommendUtil {
             }
         }
 
-        log.debug("[Shell Execution Result] ");
+        String msg = "[Shell Execution Result] ";
         if("".equals(output.toString())) {
-            log.debug("Success!");
+            msg += "Success!";
         } else {
-            log.debug(output.toString());
+            msg += output.toString();
         }
+        log.debug(msg);
 //        return output.toString();
     }
 

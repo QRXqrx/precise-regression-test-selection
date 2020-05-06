@@ -106,6 +106,9 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
             targetPathBuilder.append("/");
         }
         targetPathBuilder.append(TARGET);
+
+        log.debug("[targetPath]" + targetPathBuilder.toString());
+
         return targetPathBuilder.toString();
     }
 

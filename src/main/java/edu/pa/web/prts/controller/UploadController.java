@@ -72,21 +72,22 @@ public class UploadController {
             return "redirect:/uploadStatus";
         }
 
-        // 记录上传的zip文件的位置，用于之后解压
-        String pathStr = "";
+        // 记录上传的zip文件的位置，用于之后解压 -> 05-06只需要记录原生简单名称即可
+        String zipName = "";
 
         try {
             byte[] bytes = zipFile.getBytes();
-            Path path = Paths.get(properties.getUploadFolder(), zipFile.getOriginalFilename());
-            pathStr = path.toString();
+            zipName = zipFile.getOriginalFilename();
+
+            Path path = Paths.get(properties.getUploadFolder(), zipName);
 
             log.debug("[path]" + path);
-            log.debug("[pathStr]" + pathStr);
+            log.debug("[pathStr]" + zipName);
             Files.write(path, bytes);
 
             redirectAttributes.addFlashAttribute(
                     "message",
-                    "上传"+ zipFile.getOriginalFilename() + "成功！"
+                    "上传"+ zipName + "成功！"
             );
         } catch (IOException e) {
             e.printStackTrace();
@@ -96,7 +97,7 @@ public class UploadController {
         log.debug("[version]\t" + version);
         // 版本信息写入数据库
 
-        VersionInfo versionInfo = uploadFileService.storeVersionInfo(groupID, version, pathStr);
+        VersionInfo versionInfo = uploadFileService.storeVersionInfo(groupID, version, zipName);
 
         log.debug("[versionInfo]" + versionInfo);
 
