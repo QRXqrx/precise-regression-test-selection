@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 静态调用分析实现类。需要传入项目的根目录路径rootPath以及项目的组别号groupID。在调用analysis方法后
@@ -70,9 +71,23 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
         this.uploadProperties = uploadProperties;
     }
 
-    public CallRelationAnalysis(String rootPath, String groupID) {
+    public CallRelationAnalysis(String rootPath, String groupID, InvocationOperation invocationOperation, MethodOperation methodOperation, VersionInfoOperation versionInfoOperation, UploadProperties uploadProperties) {
         this.rootPath = rootPath;
         this.groupID = groupID;
+        this.invocationOperation = invocationOperation;
+        this.methodOperation = methodOperation;
+        this.versionInfoOperation = versionInfoOperation;
+        this.uploadProperties = uploadProperties;
+    }
+
+    public CallRelationAnalysis(String rootPath, String groupID, InvocationOperation invocationOperation, MethodOperation methodOperation, VersionInfoOperation versionInfoOperation, UploadProperties uploadProperties, String exPath) {
+        this.rootPath = rootPath;
+        this.groupID = groupID;
+        this.invocationOperation = invocationOperation;
+        this.methodOperation = methodOperation;
+        this.versionInfoOperation = versionInfoOperation;
+        this.uploadProperties = uploadProperties;
+        this.exPath = exPath;
     }
 
     /**
@@ -193,8 +208,11 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
     }
 
     public void saveResult() {
-        invocationOperation.updateTable(invocations);
-        methodOperation.updateTable(methods);
+        Map<String, Integer> invocationUpdateResult = invocationOperation.updateTable(invocations);
+        log.debug(invocationUpdateResult.toString());
+
+        Map<String, Integer> methodUpdateResult = methodOperation.updateTable(methods);
+        log.debug(methodUpdateResult.toString());
     }
 
     public void analysisAndSave() {

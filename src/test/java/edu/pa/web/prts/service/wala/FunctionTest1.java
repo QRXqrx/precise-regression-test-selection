@@ -13,9 +13,12 @@ import com.ibm.wala.types.annotations.Annotation;
 import com.ibm.wala.util.CancelException;
 import edu.pa.web.prts.bean.Invocation;
 import edu.pa.web.prts.bean.Method;
+import edu.pa.web.prts.bean.VersionInfo;
 import edu.pa.web.prts.jpa.InvocationRepository;
 import edu.pa.web.prts.jpa.MethodRepository;
+import edu.pa.web.prts.jpa.VersionInfoRepository;
 import edu.pa.web.prts.properties.UploadProperties;
+import edu.pa.web.prts.service.impl.VersionInfoOperation;
 import edu.pa.web.prts.util.WalaUtil;
 import jdk.internal.org.objectweb.asm.ClassReader;
 import org.junit.jupiter.api.Test;
@@ -50,6 +53,9 @@ class FunctionTest1 {
 
     @Autowired
     private MethodRepository methodRepository;
+
+    @Autowired
+    VersionInfoRepository versionInfoRepository;
 
     @Test
     void testGenerateMethods() throws CancelException, IOException, ClassHierarchyException {
@@ -166,6 +172,11 @@ class FunctionTest1 {
     @Test
     void resetMethodRepo() {
         methodRepository.deleteAll();
+    }
+
+    @Test
+    void resetVersionInfoRepo(){
+        versionInfoRepository.deleteAll();
     }
 
 }

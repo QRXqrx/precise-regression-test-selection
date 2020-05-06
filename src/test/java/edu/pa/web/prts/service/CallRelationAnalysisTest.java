@@ -1,6 +1,9 @@
 package edu.pa.web.prts.service;
 
+import edu.pa.web.prts.bean.VersionInfo;
+import edu.pa.web.prts.jpa.VersionInfoRepository;
 import edu.pa.web.prts.service.impl.CallRelationAnalysis;
+import edu.pa.web.prts.service.impl.VersionInfoOperation;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
@@ -26,6 +29,29 @@ class CallRelationAnalysisTest {
 
     @Autowired
     CallRelationAnalysis callRelationAnalysis;
+
+    @Autowired
+    VersionInfoOperation versionInfoOperation;
+
+    @Test
+    void testAnalysisAndSave2(){
+        versionInfoOperation.updateTable(new VersionInfo(System.currentTimeMillis(), "1.1", folder2, groupID));
+
+        callRelationAnalysis.setRootPath(folder2);
+        callRelationAnalysis.setGroupID(groupID);
+
+        callRelationAnalysis.analysisAndSave();
+    }
+
+    @Test
+    void testAnalysisAndSave1(){
+        versionInfoOperation.updateTable(new VersionInfo(System.currentTimeMillis(), "1.0", folder1, groupID));
+
+        callRelationAnalysis.setRootPath(folder1);
+        callRelationAnalysis.setGroupID(groupID);
+
+        callRelationAnalysis.analysisAndSave();
+    }
 
     @Test
     void testAnalysis() {
