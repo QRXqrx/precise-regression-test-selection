@@ -12,6 +12,10 @@
     <script type="text/javascript" th:src="@{/bootstrap-3.3.7/js/bootstrap.js}"></script>
     <script type="text/javascript" th:src="@{/js/jquery-3.4.1.js}"></script>
 
+
+
+
+
 </head>
 <body>
 <div id="div-center" align="center">
@@ -31,8 +35,12 @@
         <td th:text="${projectVersionVo.getPresentVersion()}"></td>
         <td th:text="${projectVersionVo.getPreviousVersion()}"></td>
         <td ><a class="btn btn-primary btn-info" th:href="'/analysis_result/'+ ${projectVersionVo.getGroupID()}">查看静态分析结果</a></td>
-        <td th:if="${projectVersionVo.upToDate}"><button class="btn btn-primary btn-info disabled">执行调用分析</button></td>
-        <td th:if="${!projectVersionVo.upToDate}"><a class="btn btn-primary btn-info" href="/">执行调用分析</a></td>
+        <td th:if="${projectVersionVo.getUpToDate()}"><button class="btn btn-primary btn-info disabled">执行调用分析</button></td>
+        <td th:if="${!projectVersionVo.getUpToDate()}" th:onclick="driveAnalysis([[${projectVersionVo.getGroupID()}]]);">
+            <button class="btn btn-primary btn-info">
+                执行调用分析
+            </button>
+        </td>
     </tr>
     <!--<tr>-->
         <!--<td>项目名示例</td>-->
@@ -41,18 +49,26 @@
         <!--<td><a class="btn btn-primary btn-info" href="">查看静态分析结果</a></td> &lt;!&ndash;或者用超链接&ndash;&gt;-->
     <!--</tr>-->
 </table>
-
     <a class="btn btn-primary" href="/upload">上传新项目</a>
 </div>
 </body>
-
-
 <script type="text/javascript">
     window.onload = function() {
+
         document.getElementById("upload_btn").onclick = function() {
             console.log("跳转到上传页面");
             window.location.href="/upload"
-        }
+        };
+
+
+    };
+
+    function driveAnalysis(groupID) {
+        console.log("groupID:" + groupID);
+        $.ajax({
+            type: "POST",
+            url: "/drive_analysis/" + groupID
+        })
     }
 </script>
 

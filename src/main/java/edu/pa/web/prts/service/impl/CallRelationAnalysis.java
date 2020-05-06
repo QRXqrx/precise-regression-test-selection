@@ -47,10 +47,10 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
     private String groupID;
 
     // 自动注入的属性
-    InvocationOperation invocationOperation;
-    MethodOperation methodOperation;
-    VersionInfoOperation versionInfoOperation;
-    UploadProperties uploadProperties; // 用于定位到分析目录
+    private InvocationOperation invocationOperation;
+    private MethodOperation methodOperation;
+    private VersionInfoOperation versionInfoOperation;
+    private UploadProperties uploadProperties; // 用于定位到分析目录
 
     // 可选外部传入的属性，默认为Java60RegressionExclusions.txt
     private String exPath = "src/main/resources/Java60RegressionExclusions.txt";
@@ -61,7 +61,6 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
     private List<Invocation> invocations;
     private List<Method> methods;
 
-    // TODO: 有点不明白自动注入的工作原理
     @Autowired
     public CallRelationAnalysis(InvocationOperation invocationOperation, MethodOperation methodOperation, VersionInfoOperation versionInfoOperation, UploadProperties uploadProperties) {
         // 这四个部件需要自动注入
