@@ -1,7 +1,9 @@
 package edu.pa.web.prts.service.impl;
 
+import edu.pa.web.prts.bean.VersionInfo;
 import edu.pa.web.prts.service.UploadFileService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,6 +20,13 @@ import java.util.List;
 @Slf4j
 @Service
 public class UploadFile implements UploadFileService {
+
+    VersionInfoOperation versionInfoOperation;
+
+    @Autowired
+    public UploadFile(VersionInfoOperation versionInfoOperation) {
+        this.versionInfoOperation = versionInfoOperation;
+    }
 
     /**
      * 确保目录存在，不存在则创建
@@ -65,5 +74,12 @@ public class UploadFile implements UploadFileService {
     public String parseProjectRoot(String originalFileName) {
         int loc = originalFileName.indexOf('/');
         return originalFileName.substring(0, loc);
+    }
+
+    @Override
+    public VersionInfo storeVersionInfo(String groupID, String version, String path) {
+        VersionInfo versionInfo = new VersionInfo(System.currentTimeMillis(), version, path, groupID);
+        versionInfoOperation.updateTable(versionInfo);
+        return versionInfo;
     }
 }

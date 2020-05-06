@@ -24,12 +24,12 @@ import java.util.List;
 
 @Slf4j
 @Controller
-public class PageController {
+public class VOController {
 
     VOFactory voFactory;
 
     @Autowired
-    public PageController(VOFactory voFactory) {
+    public VOController(VOFactory voFactory) {
         this.voFactory = voFactory;
     }
 

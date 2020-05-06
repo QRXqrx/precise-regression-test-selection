@@ -50,11 +50,13 @@ public class VersionInfoOperation implements DBOperationService<VersionInfo> {
 
     /**
      * 判定某个项目是否更新到最新
+     * 2020-05-06更新：有可能用户一直上传但是一直没有驱动静态分析，因此要先判断老版本的调用分析状态。
+     *
      * @param groupID 组别号
      * @return 是否为最新
      */
     public boolean isUpToDate(String groupID) {
-        return findLatestVersionInfo(groupID).getIsAnalyzed();
+        return (findOldestVersionInfo(groupID).getIsAnalyzed() && findLatestVersionInfo(groupID).getIsAnalyzed());
     }
 
     /**

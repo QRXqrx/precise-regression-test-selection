@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <title>上传结果展示</title>
+    <!--用于本地调试-->
+    <link rel="stylesheet" type="text/css" href="../static/bootstrap-3.3.7/css/bootstrap.css">
+    <script type="text/javascript" src="../static/js/jquery-3.4.1.js"></script>
+    <script type="text/javascript" src="../static/bootstrap-3.3.7/js/bootstrap.js"></script>
+    <!--用于线上-->
+    <link rel="stylesheet" type="text/css" th:href="@{/bootstrap-3.3.7/css/bootstrap.css}">
+    <script type="text/javascript" th:src="@{/bootstrap-3.3.7/js/bootstrap.js}"></script>
+    <script type="text/javascript" th:src="@{/js/jquery-3.4.1.js}"></script>
+
 </head>
 <body>
 
@@ -11,17 +20,10 @@
 <h1>上传结果</h1>
     <h2 th:text="${message}">上传结果显示</h2>
 
-    <button id="return-to-index-btn">返回主界面</button><button>精准测试分析</button>
+    <a class="btn btn-primary btn-info" href="/">返回主页</a>
 
 </div>
 
 </body>
 
-<script type="text/javascript">
-    window.onload = function() {
-        document.getElementById("return-to-index-btn").onclick = function() {
-            window.location = "/";
-        }
-    }
-</script>
 </html>

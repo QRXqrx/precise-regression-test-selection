@@ -1,17 +1,23 @@
 package edu.pa.web.prts.controller;
 
+import edu.pa.web.prts.bean.VersionInfo;
 import edu.pa.web.prts.properties.UploadProperties;
 import edu.pa.web.prts.service.UploadFileService;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -49,10 +55,60 @@ public class UploadController {
         return "upload_status";
     }
 
+    @PostMapping("/uploadFile")
+    public String uploadFile(
+            @RequestParam("project-zip") MultipartFile zipFile,
+            @RequestParam("project-id") String groupID,
+            @RequestParam("project-version") String version,
+            RedirectAttributes redirectAttributes
+    ) {
+
+        if(zipFile.isEmpty()) {
+            // redirectAttributes用于提供重定向场景下的一些数据支持。数据域用来传递数据
+            redirectAttributes.addFlashAttribute(
+                    "message",
+                    "上传项目失败，请上传可用的Maven项目！"
+            );
+            return "redirect:/uploadStatus";
+        }
+
+        // 记录上传的zip文件的位置，用于之后解压
+        String pathStr = "";
+
+        try {
+            byte[] bytes = zipFile.getBytes();
+            Path path = Paths.get(properties.getUploadFolder(), zipFile.getOriginalFilename());
+            pathStr = path.toString();
+
+            log.debug("[path]" + path);
+            log.debug("[pathStr]" + pathStr);
+            Files.write(path, bytes);
+
+            redirectAttributes.addFlashAttribute(
+                    "message",
+                    "上传"+ zipFile.getOriginalFilename() + "成功！"
+            );
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        log.debug("[groupID]\t" + groupID);
+        log.debug("[version]\t" + version);
+        // 版本信息写入数据库
+
+        VersionInfo versionInfo = uploadFileService.storeVersionInfo(groupID, version, pathStr);
+
+        log.debug("[versionInfo]" + versionInfo);
+
+        return "redirect:/uploadStatus";
+    }
+
+
+    @Deprecated
     @PostMapping("/uploadFolder")
     public String uploadFolder(
             @RequestParam("project-folder") MultipartFile[] folder,
-            @RequestParam("project-name") String name,
+            @RequestParam("project-id") String name,
             @RequestParam("project-version") String version,
             RedirectAttributes redirectAttributes
     ) {

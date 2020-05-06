@@ -29,8 +29,7 @@ public class VersionInfo {
     @Id
     @Column(name = "upload_time")
     private Long uploadTime;
-
-
+    
     @Column(name = "version")
     private String version;
 
@@ -49,6 +48,16 @@ public class VersionInfo {
         this.version = version;
         this.rootFolder = rootFolder;
         this.groupID = groupID;
+
+        this.isAnalyzed = false;
+    }
+
+    public VersionInfo(Long uploadTime, String version, String groupID) {
+        this.uploadTime = uploadTime;
+        this.version = version;
+        this.groupID = groupID;
+
+        this.isAnalyzed = false;
     }
 }
 

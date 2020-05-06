@@ -27,24 +27,32 @@
 <div id="center-div" align="center">
 <h1>项目上传页面</h1>
 
-    <form method="post" action="/uploadFolder" enctype="multipart/form-data">
+    <form method="post" action="/uploadFile" enctype="multipart/form-data">
         <table class="table">
             <tr>
-                <td class="td-left">项目名称</td>
-                <td class="td-right"><input type="text" name="project-name" placeholder="项目名称.."/></td>
+                <td class="td-left">组别号</td>
+                <td class="td-right"><input type="text" name="project-id" placeholder="项目组别号.."/></td>
             </tr>
             <tr>
-                <td class="td-left">项目版本号</td>
+                <td class="td-left">版本号</td>
                 <td class="td-right"><input type="text" name="project-version" placeholder="项目版本号.."/></td>
             </tr>
             <tr>
+
                 <td class="td-left">
-                    <!-- html5支持选择文件夹上传 -->
-                    <input type="file" name="project-folder" multiple webkitdirectory="">
+                    <input type="file" name="project-zip">
                 </td>
                 <td class="td-right">
                     <input type="submit" value="上传">
                 </td>
+
+                <!--<td class="td-left">-->
+                    <!--&lt;!&ndash; html5支持选择文件夹上传 &ndash;&gt;-->
+                    <!--<input type="file" name="project-folder" multiple webkitdirectory="">-->
+                <!--</td>-->
+                <!--<td class="td-right">-->
+                    <!--<input type="submit" value="上传">-->
+                <!--</td>-->
             </tr>
 
         </table>
