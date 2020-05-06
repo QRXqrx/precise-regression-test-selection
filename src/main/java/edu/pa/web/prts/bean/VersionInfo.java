@@ -40,6 +40,16 @@ public class VersionInfo {
     @Column(name = "group_id")
     private String groupID;
 
+    @Column(name = "is_analyzed")
+    private Boolean isAnalyzed;
+
+
+    public VersionInfo(Long uploadTime, String version, String rootFolder, String groupID) {
+        this.uploadTime = uploadTime;
+        this.version = version;
+        this.rootFolder = rootFolder;
+        this.groupID = groupID;
+    }
 }
 
 

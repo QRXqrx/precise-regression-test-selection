@@ -24,12 +24,15 @@
         <th>当前版本</th>
         <th>上一个版本</th>
         <th></th>
+        <th></th>
     </tr>
     <tr th:each="projectVersionVo:${projectVersionVoList}">
         <td th:text="${projectVersionVo.getGroupID()}"></td>
         <td th:text="${projectVersionVo.getPresentVersion()}"></td>
         <td th:text="${projectVersionVo.getPreviousVersion()}"></td>
         <td ><a class="btn btn-primary btn-info" th:href="'/analysis_result/'+ ${projectVersionVo.getGroupID()}">查看静态分析结果</a></td>
+        <td th:if="${projectVersionVo.upToDate}"><button class="btn btn-primary btn-info disabled">执行调用分析</button></td>
+        <td th:if="${!projectVersionVo.upToDate}"><a class="btn btn-primary btn-info" href="/">执行调用分析</a></td>
     </tr>
     <!--<tr>-->
         <!--<td>项目名示例</td>-->

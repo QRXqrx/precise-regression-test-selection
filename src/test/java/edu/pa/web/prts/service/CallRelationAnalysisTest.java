@@ -1,7 +1,6 @@
 package edu.pa.web.prts.service;
 
 import edu.pa.web.prts.bean.VersionInfo;
-import edu.pa.web.prts.jpa.VersionInfoRepository;
 import edu.pa.web.prts.service.impl.CallRelationAnalysis;
 import edu.pa.web.prts.service.impl.VersionInfoOperation;
 import org.junit.Assert;

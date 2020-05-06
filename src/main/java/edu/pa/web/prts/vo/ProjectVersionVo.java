@@ -23,5 +23,7 @@ public class ProjectVersionVo {
 
     private String previousVersion;
 
+    private Boolean upToDate;
+
 
 }

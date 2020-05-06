@@ -138,7 +138,8 @@ public class VOFactory {
     public ProjectVersionVo makeProjectVersionVo(String groupID) {
         String presentVersion = versionInfoOperation.findLatestVersionID(groupID);
         String previousVersion = versionInfoOperation.findOldestVersionID(groupID);
-        return new ProjectVersionVo(groupID, presentVersion, previousVersion);
+        boolean upToDate = versionInfoOperation.isUpToDate(groupID);
+        return new ProjectVersionVo(groupID, presentVersion, previousVersion, upToDate);
     }
 
 }

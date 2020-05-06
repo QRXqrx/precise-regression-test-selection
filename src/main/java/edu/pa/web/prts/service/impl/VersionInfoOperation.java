@@ -49,6 +49,15 @@ public class VersionInfoOperation implements DBOperationService<VersionInfo> {
     }
 
     /**
+     * 判定某个项目是否更新到最新
+     * @param groupID 组别号
+     * @return 是否为最新
+     */
+    public boolean isUpToDate(String groupID) {
+        return findLatestVersionInfo(groupID).getIsAnalyzed();
+    }
+
+    /**
      * @param groupID 目标组号
      * @return 组号对应项目的最新版本信息
      */
