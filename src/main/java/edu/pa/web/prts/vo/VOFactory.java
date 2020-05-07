@@ -6,7 +6,6 @@ import edu.pa.web.prts.bean.VersionInfo;
 import edu.pa.web.prts.service.impl.InvocationOperation;
 import edu.pa.web.prts.service.impl.MethodOperation;
 import edu.pa.web.prts.service.impl.VersionInfoOperation;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -53,6 +52,8 @@ public class VOFactory {
         // 找到根节点
         Method rootMethod = methodOperation.findByID(groupID, fullName);
 
+        log.debug("[Build VO for RootMethod]" + rootMethod);
+
         if(rootMethod == null) { // 如果这个方法不存在
             return null;
         }
@@ -91,22 +92,51 @@ public class VOFactory {
 
     }
 
-
-    public List<Method> makePaginationArtifactListVo(String groupID, int start, int end) {
-        List<Method> allArtifacts = makeArtifactsList(groupID);
-        List<Method> subArtifactList = new ArrayList<>();
+    /**
+     * 简单分页方法，每次传送固定的几个method记录到页面上
+     *
+     * @param methodList 方法记录列表
+     * @param start 起始位置
+     * @param end 结束位置
+     * @return 起始到结束位置间的所有记录
+     */
+    private List<Method> pagination(List<Method> methodList, int start, int end) {
+        List<Method> subList = new ArrayList<>();
         // 起始不能小于0，结束不能超过allArtifacts的长度
         if(start < 0 ) {
             start = 0;
         }
-        if(end > allArtifacts.size()) {
-            end = allArtifacts.size();
+        if(end > methodList.size()) {
+            end = methodList.size();
         }
 
         for(int i = start; i < end ; i++) {
-            subArtifactList.add(allArtifacts.get(i));
+            subList.add(methodList.get(i));
         }
-        return subArtifactList;
+        return subList;
+    }
+
+    public Map<String, Integer> makeSelectedRatio(String groupId) {
+        Map<String, Integer> selectedRatio = new HashMap<>();
+        selectedRatio.put("all", methodOperation.findAllTest(groupId).size());
+        selectedRatio.put("selected", methodOperation.findSelectedTest(groupId).size());
+        return selectedRatio;
+    }
+
+    public List<Method> makeSelectedTestList(String groupID) {
+        return methodOperation.findSelectedTest(groupID);
+    }
+
+    public List<Method> makePaginationSelectedTestListVo(String groupID, int start, int end) {
+        List<Method> selectedTestList = makeSelectedTestList(groupID);
+        return pagination(selectedTestList, start, end);
+    }
+
+
+
+    public List<Method> makePaginationArtifactListVo(String groupID, int start, int end) {
+        List<Method> allArtifacts = makeArtifactsList(groupID);
+        return pagination(allArtifacts, start, end);
     }
 
 

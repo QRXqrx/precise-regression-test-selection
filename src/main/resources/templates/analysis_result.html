@@ -15,25 +15,26 @@
 <body>
 
 <h1 align="center" th:text="${groupID} + ' 组件列表'">测试结果展示</h1>
-<a class="btn btn-primary" href="">查看选中测试</a><br>
+<a class="btn btn-primary" th:href="'/selected_test/' + ${groupID}">查看选中测试</a><br>
 
 <table class="table">
     <tr>
         <th>类名</th>
         <th>方法名</th>
-        <th>测试方法</th>
         <th>变更相关</th>
+        <th>测试方法</th>
         <th>当前版本</th>
         <th></th>
     </tr>
     <tr th:each="artifact : ${currentArtifacts}">
-        <td th:text="${artifact.getClassName()}"></td>
-        <td th:text="${artifact.getSimpleName()}"></td>
-        <td th:text="${artifact.getIsChanged()==true ? '是' : '否' }"></td>
-        <td th:text="${artifact.getIsTest()==true ? '是' : '否' }"></td>
-        <td th:text="${artifact.getVersion()}"></td>
+        <td><h4 th:text="${artifact.getClassName()}"></h4></td>
+        <td><h4 th:text="${artifact.getSimpleName()}"></h4></td>
+        <td><h4 th:text="${artifact.getIsChanged()==true ? '是' : '否' }"></h4></td>
+        <td><h4 th:text="${artifact.getIsTest()==true ? '是' : '否' }"></h4></td>
+        <td><h4 th:text="${artifact.getVersion()}"></h4></td>
         <td><a class="btn btn-primary btn-info" th:href="'/call_relation/' + ${artifact.getGroupID()} + '/' + ${artifact.getFullName()}">查看调用图</a></td>
     </tr>
+
 </table>
 <div align="center">
     <ul class="pagination">

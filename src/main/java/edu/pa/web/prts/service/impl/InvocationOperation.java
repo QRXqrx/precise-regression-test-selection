@@ -71,6 +71,15 @@ public class InvocationOperation implements DBOperationService<Invocation> {
         return updateTable(list);
     }
 
+    private List<Invocation> findOutDatedInvocations(String groupID) {
+        String updateVersionID = versionInfoOperation.findUpdateVersionID(groupID);
+        List<Invocation> updatedInvocations = invocationRepository.findAllByGroupIDAndVersion(groupID, updateVersionID);
+        return invocationRepository.findAllByGroupID(groupID)
+                .stream()
+                .filter((invoc) -> !updatedInvocations.contains(invoc))
+                .collect(Collectors.toList());
+    }
+
     @Override
     public Map<String, Integer> updateTable(List<Invocation> newRecords) {
         int deleteCnt = 0;
@@ -104,24 +113,35 @@ public class InvocationOperation implements DBOperationService<Invocation> {
             if(versionInfoOperation.onlyOneVersion(groupID)) {
                 continue;
             }
-            if(!versionInfoOperation.onlyOneVersion(groupID)) { // 该groupID对应的项目已经存在多个版本
-                // 获取到旧版本
-                String oldestVersionID = versionInfoOperation.findOldestVersionID(groupID);
-                // 获取到所有当前版本还位旧版本的Invocation记录。这些记录在本次显示中不会被选中，并且会在第三个版本进入后被删除
-                List<Invocation> allInvocationsWithOldVersion =
-                        invocationRepository.findAllByGroupIDAndVersion(groupID, oldestVersionID);
-                for (Invocation oldInvocation : allInvocationsWithOldVersion) {
-                    Invocation newInvocation = new Invocation(
-                            oldInvocation.getCaller(),
-                            oldInvocation.getCallee(),
-                            oldInvocation.getGroupID(),
-                            true, // 这条记录已经被抛弃了
-                            false,
-                            oldInvocation.getVersion() // 暂定是保留老版本
-                    );
-                    update(oldInvocation, newInvocation); // 更新为船新版本
-                }
+            // 找到所有过时的调用关系
+            List<Invocation> outDatedInvocations = findOutDatedInvocations(groupID);
+            for (Invocation oldInvocation : outDatedInvocations) {
+                Invocation newInvocation = new Invocation(
+                        oldInvocation.getCaller(),
+                        oldInvocation.getCallee(),
+                        oldInvocation.getGroupID(),
+                        true, // 这条记录已经过时了，将被抛弃
+                        false,
+                        oldInvocation.getVersion() // 暂定是保留老版本
+                );
+                update(oldInvocation, newInvocation); // 更新为船新版本
             }
+//            // 获取到旧版本
+//            String oldestVersionID = versionInfoOperation.findOldestVersionID(groupID);
+//            // 获取到所有当前版本还位旧版本的Invocation记录。这些记录在本次显示中不会被选中，并且会在第三个版本进入后被删除
+//            List<Invocation> allInvocationsWithOldVersion =
+//                    invocationRepository.findAllByGroupIDAndVersion(groupID, oldestVersionID);
+//            for (Invocation oldInvocation : allInvocationsWithOldVersion) {
+//                Invocation newInvocation = new Invocation(
+//                        oldInvocation.getCaller(),
+//                        oldInvocation.getCallee(),
+//                        oldInvocation.getGroupID(),
+//                        true, // 这条记录已经被抛弃了
+//                        false,
+//                        oldInvocation.getVersion() // 暂定是保留老版本
+//                );
+//                update(oldInvocation, newInvocation); // 更新为船新版本
+//            }
         }
 
         Map<String, Integer> updateResult = new HashMap<>();

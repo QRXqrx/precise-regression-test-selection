@@ -35,41 +35,6 @@ public class FileUtil {
     }
 
     /**
-     * TODO: add later
-     * @param file
-     * @throws IOException
-     */
-    public static void multiLineToOneForJavaFile(File file) throws IOException {
-        if(!file.exists()) {
-            throw new IllegalArgumentException("File is not exits:" + file.getAbsolutePath());
-        }
-        if(file.isDirectory()) {
-            List<File> allJavas = getAllFilesBySuffix(file, JAVA_SUFFIX);
-            for (File javaFile : allJavas) {
-                multiLineToOneForJavaFile(javaFile);
-            }
-            return;
-        }
-        List<String> lines = readContentsLineByLine(file);
-        StringBuilder newContentBuider = new StringBuilder(lines.size() * 150);
-        for (String line : lines) {
-            newContentBuider.append(line);
-            if(needNewLine(line)) {
-                newContentBuider.append(NEW_LINE);
-            }
-        }
-        String ouputPath = writeContentIntoFile(file, newContentBuider.toString());
-        System.out.println("Change multi-line to one for [" + ouputPath + "] done");
-    }
-
-    public static void multiLineToOneForJavaFile(String path) throws IOException {
-        if(path == null) {
-            throw new IllegalArgumentException("Path should not be null.");
-        }
-        multiLineToOneForJavaFile(new File(path));
-    }
-
-    /**
      * Clear all blank lines for a java file.
      *
      * @param file is a java file.

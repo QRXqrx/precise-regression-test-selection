@@ -34,28 +34,29 @@ class CallRelationAnalysisTest {
 
     @Test
     void testAnalysisAndSave2(){
-        versionInfoOperation.updateTable(new VersionInfo(System.currentTimeMillis(), "1.1", folder2, groupID));
+        VersionInfo versionInfo = new VersionInfo(System.currentTimeMillis(), "1.1", folder2, groupID);
+        versionInfoOperation.updateTable(versionInfo);
 
-        callRelationAnalysis.setRootPath(folder2);
-        callRelationAnalysis.setGroupID(groupID);
+        callRelationAnalysis.setVersionInfo(versionInfo);
 
         callRelationAnalysis.analysisAndSave();
     }
 
     @Test
     void testAnalysisAndSave1(){
-        versionInfoOperation.updateTable(new VersionInfo(System.currentTimeMillis(), "1.0", folder1, groupID));
+        VersionInfo versionInfo = new VersionInfo(System.currentTimeMillis(), "1.0", folder1, groupID);
+        versionInfoOperation.updateTable(versionInfo);
 
-        callRelationAnalysis.setRootPath(folder1);
-        callRelationAnalysis.setGroupID(groupID);
+        callRelationAnalysis.setVersionInfo(versionInfo);
 
         callRelationAnalysis.analysisAndSave();
     }
 
     @Test
     void testAnalysis() {
-        callRelationAnalysis.setRootPath(folder1);
-        callRelationAnalysis.setGroupID(groupID);
+
+        VersionInfo versionInfo = new VersionInfo(System.currentTimeMillis(), "1.0", folder1, groupID);
+        callRelationAnalysis.setVersionInfo(versionInfo);
 
         Assert.assertNotNull(callRelationAnalysis.getInvocationOperation());
         Assert.assertNull(callRelationAnalysis.getInvocations());

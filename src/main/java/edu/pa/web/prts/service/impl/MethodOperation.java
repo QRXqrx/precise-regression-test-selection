@@ -133,6 +133,9 @@ public class MethodOperation implements DBOperationService<Method> {
         for (Method newRecord : newRecords) {
             newRecord.setIsChanged(isChangeRelated(newRecord.getFullName(), newRecord.getGroupID()));
             methodRepository.save(newRecord);
+
+            log.debug("[Now Save]" + newRecord);
+
             addCnt++;
         }
         Map<String, Integer> updateResult = new HashMap<>();

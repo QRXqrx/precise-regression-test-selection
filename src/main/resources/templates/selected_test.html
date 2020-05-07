@@ -1,0 +1,59 @@
+<!DOCTYPE html >
+<html lang="zh_CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>精准测试系统</title>
+    <!--用于本地调试-->
+    <link rel="stylesheet" type="text/css" href="../static/bootstrap-3.3.7/css/bootstrap.css">
+    <script type="text/javascript" src="../static/js/jquery-3.4.1.js"></script>
+    <script type="text/javascript" src="../static/bootstrap-3.3.7/js/bootstrap.js"></script>
+    <!--用于线上-->
+    <link rel="stylesheet" type="text/css" th:href="@{/bootstrap-3.3.7/css/bootstrap.css}">
+    <script type="text/javascript" th:src="@{/js/jquery-3.4.1.js}"></script>
+    <script type="text/javascript" th:src="@{/bootstrap-3.3.7/js/bootstrap.js}"></script>
+</head>
+<body>
+
+<div align="center">
+<h1 th:text="${groupID} + ' 测试选取结果'">测试选取结果</h1>
+    <h1 ><small th:text="${all} + ' : ' + ${selected}">选取比例</small></h1>
+</div>
+<a class="btn btn-primary" th:href="'/analysis_result/' + ${groupID}">查看全部组件</a>
+
+<table class="table">
+    <tr>
+        <th>类名</th>
+        <th>方法名</th>
+        <th>变更相关</th>
+        <th>测试方法</th>
+        <th>当前版本</th>
+        <th></th>
+    </tr>
+    <tr th:each="testMethod : ${currentTestMethods}">
+        <td><h4 th:text="${testMethod.getClassName()}"></h4></td>
+        <td><h4 th:text="${testMethod.getSimpleName()}"></h4></td>
+        <td><h4 th:text="${testMethod.getIsChanged()==true ? '是' : '否' }"></h4></td>
+        <td><h4 th:text="${testMethod.getIsTest()==true ? '是' : '否' }"></h4></td>
+        <td><h4 th:text="${testMethod.getVersion()}"></h4></td>
+        <td><a class="btn btn-primary btn-info" th:href="'/call_relation/' + ${testMethod.getGroupID()} + '/' + ${testMethod.getFullName()}">查看调用图</a></td>
+    </tr>
+
+</table>
+<div align="center">
+    <ul class="pagination">
+        <li><a th:href="'/selected_test/' + ${groupID} + '/?pageNum=' + ${pageNum - 1}">&laquo;</a></li>
+        <li><a th:href="'/selected_test/' + ${groupID} + '/?pageNum=' + ${pageNum}" th:text="${pageNum}">1</a></li>
+        <li><a th:href="'/selected_test/' + ${groupID} + '/?pageNum=' + ${pageNum + 1}" th:text="${pageNum + 1}">2</a></li>
+        <li><a th:href="'/selected_test/' + ${groupID} + '/?pageNum=' + ${pageNum + 2}" th:text="${pageNum + 2}">3</a></li>
+        <li><a th:href="'/selected_test/' + ${groupID} + '/?pageNum=' + ${pageNum + 3}" th:text="${pageNum + 3}">4</a></li>
+        <li><a th:href="'/selected_test/' + ${groupID} + '/?pageNum=' + ${pageNum + 4}" th:text="${pageNum + 4}">5</a></li>
+        <li><a th:href="'/selected_test/' + ${groupID} + '/?pageNum=' + ${pageNum + 1}">&raquo;</a></li>
+    </ul>
+</div>
+
+
+
+</body>
+
+
+</html>

@@ -43,13 +43,12 @@ import java.util.Map;
 public class CallRelationAnalysis implements CallRelationAnalysisService {
 
     // 必须外部传入的属性
-    private String rootPath;
-    private String groupID;
+    // 05-07 更新，直接传入一个versionInfo
+    private VersionInfo versionInfo; // 不是默认分析的就是最新版本，也有可能连续上传，但是没有分析
 
     // 自动注入的属性
     private InvocationOperation invocationOperation;
     private MethodOperation methodOperation;
-    private VersionInfoOperation versionInfoOperation;
     private UploadProperties uploadProperties; // 用于定位到分析目录
 
     // 可选外部传入的属性，默认为Java60RegressionExclusions.txt
@@ -62,32 +61,13 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
     private List<Method> methods;
 
     @Autowired
-    public CallRelationAnalysis(InvocationOperation invocationOperation, MethodOperation methodOperation, VersionInfoOperation versionInfoOperation, UploadProperties uploadProperties) {
+    public CallRelationAnalysis(InvocationOperation invocationOperation, MethodOperation methodOperation, UploadProperties uploadProperties) {
         // 这四个部件需要自动注入
         this.invocationOperation = invocationOperation;
         this.methodOperation = methodOperation;
-        this.versionInfoOperation = versionInfoOperation;
         this.uploadProperties = uploadProperties;
     }
 
-    public CallRelationAnalysis(String rootPath, String groupID, InvocationOperation invocationOperation, MethodOperation methodOperation, VersionInfoOperation versionInfoOperation, UploadProperties uploadProperties) {
-        this.rootPath = rootPath;
-        this.groupID = groupID;
-        this.invocationOperation = invocationOperation;
-        this.methodOperation = methodOperation;
-        this.versionInfoOperation = versionInfoOperation;
-        this.uploadProperties = uploadProperties;
-    }
-
-    public CallRelationAnalysis(String rootPath, String groupID, InvocationOperation invocationOperation, MethodOperation methodOperation, VersionInfoOperation versionInfoOperation, UploadProperties uploadProperties, String exPath) {
-        this.rootPath = rootPath;
-        this.groupID = groupID;
-        this.invocationOperation = invocationOperation;
-        this.methodOperation = methodOperation;
-        this.versionInfoOperation = versionInfoOperation;
-        this.uploadProperties = uploadProperties;
-        this.exPath = exPath;
-    }
 
     /**
      * 返回maven项目的target目录
@@ -115,7 +95,7 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
 
     @Override
     public CHACallGraph buildCHACG(boolean appOnly) {
-        String targetPath = targetPath(rootPath);
+        String targetPath = targetPath(versionInfo.getRootFolder());
         CHACallGraph chaCallGraph = null;
         try {
             AnalysisScope scope = WalaUtil.getDynamicScope(targetPath, exPath, this.getClass().getClassLoader());
@@ -143,13 +123,14 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
 
     @Override
     public List<Invocation> generateInvocations() {
-        VersionInfo latestVersionInfo = versionInfoOperation.findLatestVersionInfo(groupID);
+
+        log.info("[Generate invocations for]" + versionInfo);
 
         List<Invocation> invocations = new ArrayList<>();
         appCHACG.forEach((node) -> {
             IMethod caller = node.getMethod();
             String callerName = WalaUtil.signatureToFullName(caller.getSignature());
-            if(WalaUtil.isArtifact(caller, groupID)) {
+            if(WalaUtil.isArtifact(caller, versionInfo.getGroupID())) {
                 Iterator<CGNode> succNodes = fullCHACG.getSuccNodes(node);
                 while(succNodes.hasNext()) {
                     IMethod callee = succNodes.next().getMethod();
@@ -159,10 +140,10 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
                             new Invocation(
                                     callerName,
                                     calleeName,
-                                    groupID,
+                                    versionInfo.getGroupID(),
                                     false,
                                     true,
-                                    latestVersionInfo.getVersion()
+                                    versionInfo.getVersion()
                             ));
                 }
             }
@@ -172,7 +153,8 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
 
     @Override
     public List<Method> generateMethods() {
-        VersionInfo latestVersionInfo = versionInfoOperation.findLatestVersionInfo(groupID);
+
+        log.info("[Generate Methods for]" + versionInfo);
 
         List<Method> methods = new ArrayList<>();
         fullCHACG.forEach((node) -> {
@@ -180,18 +162,18 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
 
             String fullName = WalaUtil.signatureToFullName(walaMethod.getSignature());
             // is_changed默认一开始是false
-            boolean isArtifact = WalaUtil.isArtifact(walaMethod, groupID);
+            boolean isArtifact = WalaUtil.isArtifact(walaMethod, versionInfo.getGroupID());
             boolean isTest = WalaUtil.isTestMethodNode(node);
             String simpleName = walaMethod.getName().toString();
             String className = walaMethod.getDeclaringClass().toString();
 
             methods.add(
                     new Method(
-                            groupID,
+                            versionInfo.getGroupID(),
                             fullName,
                             false,
                             isTest,
-                            latestVersionInfo.getVersion(),
+                            versionInfo.getVersion(), // 当前的版本进行分析
                             simpleName,
                             className,
                             isArtifact
@@ -210,9 +192,11 @@ public class CallRelationAnalysis implements CallRelationAnalysisService {
     }
 
     public void saveResult() {
+        log.info("[Save invocations for]" + versionInfo);
         Map<String, Integer> invocationUpdateResult = invocationOperation.updateTable(invocations);
         log.debug(invocationUpdateResult.toString());
 
+        log.info("[Save methods for]" + versionInfo);
         Map<String, Integer> methodUpdateResult = methodOperation.updateTable(methods);
         log.debug(methodUpdateResult.toString());
     }

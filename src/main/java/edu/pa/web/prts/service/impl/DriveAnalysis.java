@@ -57,9 +57,17 @@ public class DriveAnalysis implements DriveAnalysisService {
         log.debug("[zip path]" + zipPath);
         log.debug("[upload folder path]" + uploadFolderPath);
 
+        String shellPath;
+
+        if(System.getProperty("os.name").contains("Windows")) {
+            shellPath = ShellPath.WINDOWS_GIT_BASH.getPath(); // Windows shell
+        } else {
+            shellPath = ShellPath.LINUX_SHELL.getPath();
+        }
+
         ShellCommendUtil.executeCommand(
                 new String[] {
-                        ShellPath.WINDOWS_GIT_BASH.getPath(),
+                        shellPath,
                         SCRIPT_PATH,
                         zipPath, // unzip, rm等
                         folderPath, // cd, mvn install等
@@ -98,11 +106,10 @@ public class DriveAnalysis implements DriveAnalysisService {
 
     private void executeAnalysis(VersionInfo versionInfo) {
         log.debug("[Now execute analysis for]" + versionInfo + "...");
-        callRelationAnalysis.setGroupID(versionInfo.getGroupID());
-        callRelationAnalysis.setRootPath(versionInfo.getRootFolder());
+        callRelationAnalysis.setVersionInfo(versionInfo);
 
-        callRelationAnalysis.analysis();
-//        callRelationAnalysis.analysisAndSave(); // 暂时先不save
+        // callRelationAnalysis.analysis(); // 仅分析不储存，用于测试
+        callRelationAnalysis.analysisAndSave(); // 测试完毕之后再save
 
         log.debug("[Invocations Size]" + callRelationAnalysis.getInvocations().size());
         log.debug("[Methods Size]" + callRelationAnalysis.getMethods().size());

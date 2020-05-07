@@ -2,7 +2,6 @@ package edu.pa.web.prts.util.enums;
 
 /**
  * Shell for executing shell scripts.
- * // TODO: Write a series of batch cmd to support node analysis on Windows.
  *
  * @author QRX
  * @email QRXwzx@outlook.com

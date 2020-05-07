@@ -9,19 +9,16 @@
     <script type="text/javascript" src="../static/bootstrap-3.3.7/js/bootstrap.js"></script>
     <!--用于线上-->
     <link rel="stylesheet" type="text/css" th:href="@{/bootstrap-3.3.7/css/bootstrap.css}">
-    <script type="text/javascript" th:src="@{/bootstrap-3.3.7/js/bootstrap.js}"></script>
     <script type="text/javascript" th:src="@{/js/jquery-3.4.1.js}"></script>
-
-
-
+    <script type="text/javascript" th:src="@{/bootstrap-3.3.7/js/bootstrap.js}"></script>
 
 
 </head>
 <body>
-<div id="div-center" align="center">
 
-<h1>精准测试系统</h1>
 
+<h1 align="center">精准测试系统</h1>
+<a class="btn btn-primary" href="/upload">上传新项目</a>
 <table class="table">
     <tr>
         <th>项目组别</th>
@@ -31,45 +28,92 @@
         <th></th>
     </tr>
     <tr th:each="projectVersionVo:${projectVersionVoList}">
-        <td th:text="${projectVersionVo.getGroupID()}"></td>
-        <td th:text="${projectVersionVo.getPresentVersion()}"></td>
-        <td th:text="${projectVersionVo.getPreviousVersion()}"></td>
+        <td><h4 th:text="${projectVersionVo.getGroupID()}"></h4></td>
+        <td><h4 th:text="${projectVersionVo.getPresentVersion()}"></h4></td>
+        <td><h4 th:text="${projectVersionVo.getPreviousVersion()}"></h4></td>
         <td ><a class="btn btn-primary btn-info" th:href="'/analysis_result/'+ ${projectVersionVo.getGroupID()}">查看静态分析结果</a></td>
         <td th:if="${projectVersionVo.getUpToDate()}"><button class="btn btn-primary btn-info disabled">执行调用分析</button></td>
-        <td th:if="${!projectVersionVo.getUpToDate()}" th:onclick="driveAnalysis([[${projectVersionVo.getGroupID()}]]);">
-            <button class="btn btn-primary btn-info">
+        <td th:attr="id=${projectVersionVo.getGroupID()}" th:if="${!projectVersionVo.getUpToDate()}" th:onclick="driveAnalysis([[${projectVersionVo.getGroupID()}]]);">
+            <div>
+                <img class="loading" width="25px" height="25px" src="/tenor-loading.gif" hidden="hidden">
+                <img class="placeholder" width="25px" height="25px" src="/placeholder.png">
+                <button class="btn btn-primary btn-info">
                 执行调用分析
-            </button>
+                </button>
+            </div>
         </td>
     </tr>
-    <!--<tr>-->
-        <!--<td>项目名示例</td>-->
-        <!--<td>2.0.0</td>-->
-        <!--<td>1.0.0</td>-->
-        <!--<td><a class="btn btn-primary btn-info" href="">查看静态分析结果</a></td> &lt;!&ndash;或者用超链接&ndash;&gt;-->
-    <!--</tr>-->
 </table>
-    <a class="btn btn-primary" href="/upload">上传新项目</a>
-</div>
+
+
 </body>
 <script type="text/javascript">
-    window.onload = function() {
 
-        document.getElementById("upload_btn").onclick = function() {
-            console.log("跳转到上传页面");
-            window.location.href="/upload"
-        };
-
-
-    };
+    function groupIDToSelector(groupID) {
+        var str = groupID.toString().split("\.");
+        var id = "#";
+        for(var i = 0; i < str.length; i++) {
+            id += str[i];
+            if(i < str.length-1) {
+                id += "\\."
+            }
+        }
+        return id;
+    }
 
     function driveAnalysis(groupID) {
-        console.log("groupID:" + groupID);
         $.ajax({
             type: "POST",
-            url: "/drive_analysis/" + groupID
+            url: "/drive_analysis/" + groupID,
+            contentType: "application/json; charset=utf-8",
+            // data 好像是传输到后台的数据
+            // dataType: "json", //当后台传输回来的是简单字符串时，这边可能会进入不了success
+            // 回调函数
+            beforeSend: function() {
+                console.log("In beforSend");
+                console.log("显示loading...");
+                var tdSelector = groupIDToSelector(groupID);
+                // 显示加载
+                var loadingSelector = tdSelector + " > div > .loading";
+                $(loadingSelector).show();
+                var placeholderSelector = tdSelector + " > div > .placeholder";
+                $(placeholderSelector).hide();
+                // disable按钮，目前只disable一个，也有可能是所有的都要disable
+                var btnSelector = tdSelector + " > div > button";
+                $(btnSelector).attr("class", "btn btn-primary btn-info disabled");
+                // // disable所有
+                // $(".btn .btn-primary .btn-info .disabled").attr("class", "btn btn-primary btn-info disabled");
+            },
+
+            success: function(data) {
+                console.log("Analysis status: " + data);
+            },
+            error: function(error) {
+                console.log("Error: " + error)
+            },
+
+            complete: function() {
+                console.log("In complete");
+                var tdSelector = groupIDToSelector(groupID);
+                // 隐藏动画
+                var loadingSelector = tdSelector + " > div > .loading";
+                var placeholderSelector = tdSelector + " > div > .placeholder";
+                $(placeholderSelector).show();
+                $(loadingSelector).hide();
+                // disable按钮
+                var btnSelector = tdSelector + " > div > button";
+                $(btnSelector).attr("class", "btn btn-primary btn-info");
+
+                // // 思路一：跳转到分析结果页面
+                // window.location.href = "./analysis_result/" + groupID;
+                // // 思路二：刷新当前页面
+                window.location.reload();
+            }
+
+
         })
     }
+
 </script>
 
 </html>

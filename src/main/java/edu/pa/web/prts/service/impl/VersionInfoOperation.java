@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 /**
@@ -59,7 +60,34 @@ public class VersionInfoOperation implements DBOperationService<VersionInfo> {
         return (findOldestVersionInfo(groupID).getIsAnalyzed() && findLatestVersionInfo(groupID).getIsAnalyzed());
     }
 
+    public String findUpdateVersionID(String groupID) {
+        return findUpToDateVersionInfo(groupID).getVersion();
+    }
+
     /**
+     * 查找亟待更新的版本信息
+     *
+     * @param groupID 项目组别号
+     * @return 该项目最前沿的项目信息
+     */
+    public VersionInfo findUpToDateVersionInfo(String groupID) {
+        if(onlyOneVersion(groupID)) {
+            return versionInfoRepository.findAllByGroupID(groupID).get(0);
+        }
+
+        VersionInfo oldestVersionInfo = findOldestVersionInfo(groupID);
+        if(!oldestVersionInfo.getIsAnalyzed()) {
+            return oldestVersionInfo;
+        }
+
+        return findLatestVersionInfo(groupID);
+    }
+
+
+
+    /**
+     * 05-07更新，查找最新版本号的记录需要做相应改动
+     *
      * @param groupID 目标组号
      * @return 组号对应项目的最新版本信息
      */
